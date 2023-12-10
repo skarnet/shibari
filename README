@@ -1,0 +1,23 @@
+shibari - a collection of DNS tools
+-----------------------------------
+
+ shibari is a suite of DNS programs and libraries for
+Unix systems, as an alternative to BIND, Unbound, djbdns,
+or similar DNS software.
+
+ See https://skarnet.org/software/shibari/ for details.
+
+
+* Installation
+  ------------
+
+ See the INSTALL file.
+
+
+* Contact information
+  -------------------
+
+ Laurent Bercot <ska-skaware at skarnet.org>
+
+ Please use the <skaware at list.skarnet.org> mailing-list for
+questions about shibari.

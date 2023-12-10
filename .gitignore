@@ -1,0 +1,12 @@
+*.o
+*.lo
+/config.mak
+/src/include/shibari/config.h
+/libdcache.a.xyzzy
+/libdcache.so.xyzzy
+/libshibari-common.a.xyzzy
+/libshibari-common.so.xyzzy
+/libshibari-server.a.xyzzy
+/libshibari-server.so.xyzzy
+/shibari-server-tcp
+/shibari-server-udp

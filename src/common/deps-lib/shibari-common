@@ -1,0 +1,10 @@
+shibari_log_answer.o
+shibari_log_exit.o
+shibari_log_query.o
+shibari_log_queryplus.o
+shibari_log_start.o
+shibari_util_qtype_num.o
+shibari_util_qtype_str.o
+shibari_util_rcode_str.o
+shibari_util_get_prefixlen.o
+-lskarnet

@@ -1,0 +1,4 @@
+${LIBSHIBARI_SERVER}
+${LIBSHIBARI_COMMON}
+-ls6dns
+-lskarnet

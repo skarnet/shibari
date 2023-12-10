@@ -1,0 +1,13 @@
+shibari_packet_init.o
+shibari_packet_begin.o
+shibari_packet_end.o
+shibari_packet_add_rr.o
+shibari_tdb_entry_parse.o
+shibari_tdb_extract_domain.o
+shibari_tdb_find_authority.o
+shibari_tdb_read_entry.o
+shibari_packet_add_glue.o
+shibari_packet_assert_authority.o
+shibari_packet_tdb_answer_query.o
+-ls6dns
+-lskarnet

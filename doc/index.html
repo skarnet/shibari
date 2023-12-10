@@ -1,0 +1,181 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="Content-Language" content="en" />
+    <title>shibari - a collection of DNS tools </title>
+    <meta name="Description" content="shibari - a collection of DNS tools" />
+    <meta name="Keywords" content="shibari s6-dns DNS resolution server unix linux laurent bercot ska skarnet" />
+    <!-- <link rel="stylesheet" type="text/css" href="//skarnet.org/default.css" /> -->
+  </head>
+<body>
+
+<p>
+<a href="//skarnet.org/software/">Software</a><br />
+<a href="//skarnet.org/">skarnet.org</a>
+</p>
+
+<h1> shibari </h1>
+
+<h2> What is it&nbsp;? </h2>
+
+<p>
+ shibari is a collection of DNS tools for Unix systems, as an
+alternative to BIND, Unbound, djbdns or other similar suites of
+programs.
+</p>
+
+<p>
+ It was previously named s6-dns. The name of the project was changed to
+avoid confusion; despite being written by the same author and with the
+same mindset, it is not part of the s6 project.
+</p>
+
+<h3> Why "shibari"? </h3>
+
+<p>
+ There's a de facto tradition that DNS software has a name related to
+binding. shibari aims to be the most pleasant of all DNS software.
+</p>
+
+<hr />
+
+<h2> Installation </h2>
+
+<h3> Requirements </h3>
+
+<ul>
+ <li> A POSIX-compliant system with a standard C development environment </li>
+ <li> GNU make, version 3.81 or later </li>
+ <li> <a href="//skarnet.org/software/skalibs/">skalibs</a> version
+2.14.0.1 or later. It's a build-time requirement. It's also a run-time
+requirement if you link against the shared version of the skalibs library. </li>
+ <li> <a href="//skarnet.org/software/s6/">s6</a> version
+2.12.0.2 or later. It's a build-time requirement. It's also a run-time
+requirement if you link against the shared version of the s6 library. That
+library is used for the access control and client location features in
+<a href="shibari-server-udp.html">shibari-server-udp</a>. </li>
+ <li> (for now) <a href="//skarnet.org/software/s6-dns/">s6-dns</a> version
+2.3.7.0 or later. It's a build-time requirement. It's also a run-time
+requirement if you link against the shared version of the s6-dns library. </li>
+</ul>
+
+<h3> Licensing </h3>
+
+<p>
+ shibari is free software. It is available under the
+<a href="https://opensource.org/licenses/ISC">ISC license</a>.
+</p>
+
+<h3> Download </h3>
+
+<ul>
+ <li> The current released version of shibari is <a href="shibari-0.0.1.0.tar.gz">0.0.1.0</a>.
+(That is a lie. shibari is currently unreleased, so that link does not work.) </li>
+ <li> You can checkout a copy of the
+<a href="//git.skarnet.org/cgi-bin/cgit.cgi/shibari/">shibari
+git repository</a>:
+<pre> git clone git://git.skarnet.org/shibari </pre> </li>
+ <li> There's also a
+<a href="https://github.com/skarnet/shibari">GitHub mirror</a>
+of the shibari git repository. </li>
+</ul>
+
+<h3> Build and installation </h3>
+
+<ul>
+ <li> See the enclosed INSTALL file for build and installation details. </li>
+</ul>
+
+<h3> Upgrade notes </h3>
+
+<ul>
+ <li> <a href="upgrade.html">This page</a> lists the differences to be aware of between
+the previous versions of shibari and the current one. </li>
+</ul>
+
+<hr />
+
+<h2> Reference </h2>
+
+<h3> Commands </h3>
+
+<p>
+ All these commands exit 111 if they encounter a temporary error or
+hardware error, and
+100 if they encounter a permanent error - such as a misuse. Short-lived
+commands exit 0 on success. Other exit codes are documented in the
+relevant page.
+</p>
+
+<h4> Command-line DNS clients programs </h4>
+
+<ul>
+</ul>
+
+<h4> Caches </h4>
+
+<ul>
+</ul>
+
+<h4> Servers </h4>
+
+<ul>
+ <li> The <a href="shibari-server-tcp.html">shibari-server-tcp</a> program </li>
+ <li> The <a href="shibari-server-udp.html">shibari-server-udp</a> program </li>
+</ul>
+
+<h4> Filtering tools </h4>
+
+<ul>
+</ul>
+
+<h4> Command-line qualification </h4>
+
+<ul>
+</ul>
+
+<h4> DNS analysis and debug tools </h4>
+
+<ul>
+</ul>
+
+<h4> Miscellaneous utilities </h4>
+
+<h3> Libraries </h3>
+
+<h4> Protocol implementation and synchronous resolution </h4>
+
+<ul>
+</ul>
+
+<h4> Asynchronous resolution </h4>
+
+<ul>
+</ul>
+
+<hr />
+
+<a name="related">
+<h2> Related resources </h2>
+</a>
+
+<h3> shibari discussion </h3>
+
+<ul>
+ <li> <tt>shibari</tt> is discussed on the
+<a href="//skarnet.org/lists/#skaware">skaware</a> mailing-list. </li>
+ <li> It can also be discussed on the
+<a href="https://cr.yp.to/lists.html#dns">cr.yp.to dns mailing-list</a>. </li>
+</ul>
+
+<h3> Similar work </h3>
+
+<ul>
+ <li> <a href="https://www.isc.org/software/bind">BIND</a> </li>
+ <li> <a href="https://nlnetlabs.nl/projects/unbound/about/">Unbound</a> </li>
+ <li> <a href="https://cr.yp.to/djbdns.html">djbdns</a> </li>
+</ul>
+
+</body>
+</html>

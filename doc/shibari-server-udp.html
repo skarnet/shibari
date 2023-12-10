@@ -1,0 +1,163 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="Content-Language" content="en" />
+    <title>shibari: the shibari-server-udp program</title>
+    <meta name="Description" content="shibari: the shibari-server-udp program" />
+    <meta name="Keywords" content="shibari DNS s6-dns server database authoritative UDP s6-networking tinydns" />
+    <!-- <link rel="stylesheet" type="text/css" href="//skarnet.org/default.css" /> -->
+  </head>
+<body>
+
+<p>
+<a href="index.html">shibari</a><br />
+<a href="//skarnet.org/software/">Software</a><br />
+<a href="//skarnet.org/">skarnet.org</a>
+</p>
+
+<h1> The shibari-server-udp program </h1>
+
+<p>
+  shibari-server-udp is a long-lived process. It binds to a UDP socket, then
+answers DNS queries it receives, until it is killed.
+</p>
+
+<div id="interface">
+<h2> Interface </h2>
+</div>
+
+<pre>
+     shibari-server-udp [ -v <em>verbosity</em> ] [ -d <em>notif</em> ] [ -f <em>tdbfile</em> ] [ -i <em>rulesdir</em> ] [ -x <em>rulesfile</em> ] [ -p <em>port</em> ] <em>ip</em>
+</pre>
+
+<ul>
+ <li> shibari-server-udp creates a UDP socket and binds it to address <em>ip</em>
+on port 53. <em>ip</em> can be IPv4 or IPv6. </li>
+ <li> It listens to non-recursive DNS queries, sent by DNS caches, and, if
+appropriate, answers with data it reads from its data file. </li>
+ <li> It reloads its data file on SIGHUP, and exits 0 on SIGTERM. </li>
+ <li> The data file is a
+<a href="https://en.wikipedia.org/wiki/Cdb_(software)">cdb</a> database; it
+must use the output format from
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a>. </li>
+</ul>
+
+<div id="exitcodes">
+<h2> Exit codes </h2>
+</div>
+
+<dl>
+ <dt> 0 </dt> <dd> Clean exit. shibari-server-udp received a SIGTERM and exited. <dd>
+ <dt> 100 </dt> <dd> Bad usage. shibari-server-udp was run in an incorrect way:
+typically bad command line options. </dd>
+ <dt> 101 </dt> <dd> Cannot happen. This signals a bug in shibari-server-udp, and comes with an
+error message asking you to report the bug. Please do so, on the
+<a href="//skarnet.org/lists/#skaware">skaware mailing-list</a>. </dd>
+ <dt> 102 </dt> <dd> Misconfiguration. shibari-server-udp found something in its DNS data file
+that it does not like. </dd>
+ <dt> 111 </dt> <dd> System call failed. This usually signals an issue with the
+underlying operating system. </dd>
+</dl>
+
+<div id="options">
+<h2> Options </h2>
+</div>
+
+<dl>
+ <dt> -v <em>verbosity</em> </dt>
+ <dd> Be more or less verbose.
+A <em>verbosity</em> of 0 means no warnings, no logs, only error messages. 1
+means warnings and terse logs. 2 or more means more logs.
+Default is <strong>1</strong>. </dd>
+
+ <dt> -d <em>notif</em> </dt>
+ <dd> Write a newline to file descriptor <em>notif</em>, then close it, when
+shibari-server-udp has bound its socket, opened its file, and is ready to serve.
+This is the <a href="https://skarnet.org/software/s6/notifywhenup.html">s6
+readiness notification</a> mechanism. By default, when this option isn't given
+no readiness notification is sent. </dd>
+
+ <dt> -f <em>tdbfile</em> </dt>
+ <dd> Read DNS data from <em>tdbfile</em>.
+The default is <strong><tt>data.cdb</tt></strong>, in the current working
+directory of the shibari-server-udp process. </dd>
+
+ <dt> -i <em>rulesdir</em> </dt>
+ <dd> Use <em>rulesdir</em> as a filesystem-based
+<a href="//skarnet.org/software/s6/libs6/accessrules.html">access rules
+database</a>: ignore any message whose originating IP address isn't
+explicitly allowed. The access rules database is also used to get
+<a href="#clientlocation">client location information</a>.
+If something in <em>rulesdir</em> changes while shibari-server-udp is
+running, it will immediately pick up the change. </dd>
+
+ <dt> -x <em>rulesfile</em> </dt>
+ <dd> Use <em>rulesfile</em> as a cdb
+<a href="//skarnet.org/software/s6/libs6/accessrules.html">access rules
+database</a>, see description of <tt>-i</tt> above. <tt>-i</tt> and
+<tt>-x</tt> are equivalent; you can switch between <em>rulesdir</em>
+and <em>rulesfile</em> via the
+<a href="//skarnet.org/software/s6/s6-accessrules-cdb-from-fs.html">s6-accessrules-cdb-from-fs</a> and
+<a href="//skarnet.org/software/s6/s6-accessrules-fs-from-cdb.html">s6-accessrules-fs-from-cdb</a>
+programs. The cdb format is more efficient but more static than the
+filesystem format. If <em>rulesfile</em> changes while shibari-server-udp
+is running, it will continue to use the old data until it receives a SIGHUP. </dd>
+
+ <dt> -p <em>port</em> </dt>
+ <dd> Binds to port <em>port</em>. Default is <strong>53</strong>. </dd>
+</dl>
+
+<div id="clientlocation">
+<h2> Client location </h2>
+</div>
+
+<p>
+ shibari-server-udp ignores client location information given as
+<tt>%lo:ipprefix</tt> lines in the file created by
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a>.
+Instead, it reads client location information in LOC definitions
+present in the <em>rulesdir</em> or <em>rulesfile</em>
+access rules database. For instance,
+if you have a <tt>%lo:1.2.3</tt> line in your text data file, meaning
+that clients whose IP address is in the <tt>1.2.3.0/24</tt> IPv4
+range are identified with the <tt>lo</tt> location and that DNS data
+entries ending with <tt>:lo</tt> are visible to them, you need to
+translate this information into the accessrules format. Your
+<em>rulesdir</em> must contain the following files:
+</p>
+
+<ul>
+ <li> <tt>ip4/1.2.3.0_24/allow</tt> (may be empty) </li>
+ <li> <tt>ip4/1.2.3.0_24/env/LOC</tt> containing <tt>lo</tt> </li>
+</ul>
+
+<p>
+ (To use the <tt>-x</tt> option instead, you'd do the same, then run
+<tt>s6-accessrules-cdb-from-fs <em>rulesfile</em> <em>rulesdir</em></tt>
+to compile the information into <em>rulesfile</em>.)
+</p>
+
+<div id="notes">
+<h2> Notes </h2>
+</div>
+
+<ul>
+ <li> The DNS database can be changed at any time via an invocation of
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a>.
+shibari-server-udp will keep using the old data until it receives a
+SIGHUP, at which point it will reopen its database. </li>
+ <li> shibari-server-udp is a drop-in replacement for
+<a href="https://cr.yp.to/djbdns/tinydns.html">tinydns</a>, with the
+caveat of the <a href="#clientlocation">client location mechanism</a>. </li>
+ <li> If you are using the <tt>-i<tt> or <tt>-x</tt> option, the
+access rules database can, and should, be the same one that is used by the
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver-access.html">s6-tcpserver-access</a>
+program in your
+<a href="shibari-server-tcp.html">shibari-server-tcp</a> service. You
+don't want to give different permissions, or different location information,
+depending on whether a query is made over TCP or UDP. </li>
+</ul>
+
+</body>
+</html>

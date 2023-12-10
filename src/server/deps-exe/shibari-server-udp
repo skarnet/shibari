@@ -1,0 +1,6 @@
+${LIBSHIBARI_SERVER}
+${LIBSHIBARI_COMMON}
+-ls6dns
+-ls6
+-lskarnet
+${SOCKET_LIB}

@@ -1,0 +1,213 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="Content-Language" content="en" />
+    <title>shibari: the shibari-server-tcp program</title>
+    <meta name="Description" content="shibari: the shibari-server-tcp program" />
+    <meta name="Keywords" content="shibari DNS s6-dns server database authoritative TCP s6-networking ucspi" />
+    <!-- <link rel="stylesheet" type="text/css" href="//skarnet.org/default.css" /> -->
+  </head>
+<body>
+
+<p>
+<a href="index.html">shibari</a><br />
+<a href="//skarnet.org/software/">Software</a><br />
+<a href="//skarnet.org/">skarnet.org</a>
+</p>
+
+<h1> The shibari-server-tcp program </h1>
+
+<p>
+  shibari-server-tcp reads DNS queries on its standard input, and answers them
+on its standard output.
+</p>
+
+<div id="interface">
+<h2> Interface </h2>
+</div>
+
+<pre>
+     shibari-server-tcp [ -v <em>verbosity</em> [ -f <em>tdbfile</em> ] [ -r <em>rtimeout</em> ] [ -w <em>wtimeout</em> ]
+</pre>
+
+<ul>
+ <li> shibari-server-tcp reads a stream of DNS queries on its stdin (encoded
+in the TCP DNS way, i.e. 2 bytes of length then the payload), and tries to fulfill them,
+sending answers to stdout. It logs its actions to stderr. </li>
+ <li> It supports normal queries and AXFR queries. </li>
+ <li> It reads DNS data information from a
+<a href="https://en.wikipedia.org/wiki/Cdb_(software)">cdb</a> database; the
+database must use the output format from
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a>. </li>
+</ul>
+
+<div id="commonusage">
+<h2> Common usage </h2>
+</div>
+
+<p>
+ shibari-server-tcp is intended to be run under a TCP super-server such as
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver.html">s6-tcpserver</a>.
+It delegates to the super-server the job of binding and listening to
+the socket, accepting connections, and spawning a separate process to handle a
+given connection.
+</p>
+
+<p>
+ As such, a command line for shibari-server-tcp, running as user <tt>dns</tt>, listening
+on address <tt>${ip}</tt>, would typically look like this:
+</p>
+
+<pre>
+     s6-envuidgid dns s6-tcpserver -U -- ${ip} 53 s6-tcpserver-access -x rules.cdb -- shibari-server-tcp
+</pre>
+
+<p>
+ Most users will want to run these command lines as <em>services</em>, i.e. daemons
+run in the background when the machine starts. The <tt>examples/</tt> subdirectory
+of the shibari package provides service templates to help you run shibari-server-tcp under
+<a href="https://wiki.gentoo.org/wiki/OpenRC">OpenRC</a>,
+<a href="//skarnet.org/software/s6/">s6</a> and
+<a href="//skarnet.org/software/s6-rc/">s6-rc</a>.
+</p>
+
+<div id="exitcodes">
+<h2> Exit codes </h2>
+</div>
+
+<dl>
+ <dt> 0 </dt> <dd> Clean exit. There was a successful series of DNS exchanges
+and tipideed received EOF, or timed out while the client was idle. </dd>
+ <dt> 1 </dt> <dd> Invalid DNS query. The client spoke garbage. </dd>
+ <dt> 100 </dt> <dd> Bad usage. shibari-server-tcp was run in an incorrect way: bad command
+line options, or missing environment variables, etc. </dd>
+ <dt> 101 </dt> <dd> Cannot happen. This signals a bug in shibari-server-tcp, and comes with an
+error message asking you to report the bug. Please do so, on the
+<a href="//skarnet.org/lists/#skaware">skaware mailing-list</a>. </dd>
+ <dt> 102 </dt> <dd> Misconfiguration. shibari-server-tcp found something in its DNS data file
+that it does not like. </dd>
+ <dt> 111 </dt> <dd> System call failed. This usually signals an issue with the
+underlying operating system. </dd>
+</dl>
+
+<div id="environment">
+<h2> Environment variables </h2>
+</div>
+
+<p>
+ shibari-server-tcp expects the following variables in its environment, and will exit
+with an error message if they are undefined. When run under
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver.html">s6-tcpserver</a>,
+these variables are automatically set by the super-server. This is the way
+shibari-server-tcp gets its network information without having to perform network
+operations itself.
+</p>
+
+<dl>
+ <dt> TCPLOCALIP </dt>
+ <dd> The local IP address that the super-server is listening on. </dd>
+
+ <dt> TCPLOCALPORT </dt>
+ <dd> The local port that the super-server is listening on. In normal usage
+this will be 53. </dd>
+
+ <dt> TCPREMOTEIP </dt>
+ <dd> The IP address of the client. </dd>
+
+ <dt> TCPREMOTEPORT </dt>
+ <dd> The remote port that the client is connecting from. </dd>
+</dl>
+
+<p>
+ The following variables are optional, but will inform shibari-server-tcp's
+behaviour. They are typically set by
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver-access.html">s6-tcpserver-access</a>
+with the <tt>-i</tt> or <tt>-x</tt> option, when the access rules database
+defines environment variables depending on client IP ranges.
+</p>
+
+<dl>
+ <dt> AXFR </dt>
+ <dd> If this variable is set, it controls what zones the client is allowed
+to make AXFR queries for. A value of <tt>*</tt> (star) means the client is
+allowed to make AXFR queries for any zone, same as when the variable is not
+defined. Else, the value needs to be a space-, comma-, semicolon-, or
+slash-separated list of zones; these are the allowed zones. </dd>
+
+ <dt> LOC </dt>
+ <dd> If this variable is set, it defines a client location that is used to
+implement views. A client location is at most two charaters; if the value
+is <tt>lo</tt>, then the client will be granted access to DNS data guarded
+by a <tt>%lo</tt> location indicator in the
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a> file.
+Note that shibari-server-tcp ignores client IP prefix matching compiled in
+the database via <tt>%lo:ipprefix</tt> lines: it only takes its location
+information from the LOC variable, and will use the contents of LOC to match
+lines ending with <tt>:%lo</tt>. The idea is to only have one place centralizing
+what clients are authorized to do depending on their IP, and that place is the
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver-access.html">s6-tcpserver-access</a>
+rules database. </dd>
+</dl>
+
+<div id="options">
+<h2> Options </h2>
+</div>
+
+<dl>
+ <dt> -v <em>verbosity</em> </dt>
+ <dd> Be more or less verbose.
+A <em>verbosity</em> of 0 means no warnings, no logs, only error messages. 1
+means warnings and terse logs. 2 or more means more logs.
+Default is <strong>1</strong>. </dd>
+
+ <dt> -f <em>tdbfile</em> </dt>
+ <dd> Read DNS data from <em>tdbfile</em>.
+The default is <strong><tt>data.cdb</tt></strong>, in the current working
+directory of the shibari-server-tcp process. </dd>
+
+ <dt> -r <em>rtimeout</em> </dt>
+ <dd> Read timeout. If <em>rtimeout</em> milliseconds
+elapse while shibari-server-tcp is waiting for a DNS query, just exit.
+The default is <strong>0</strong>, meaning infinite: shibari-server-tcp
+will never close the connection until it receives EOF. </dd>
+
+ <dt> -w <em>wtimeout</em> </dt>
+ <dd> Write timeout. If shibari-server-tcp is unable
+to send its answer in <em>wtimeout</em> milliseconds, which means the network is
+congested, give up and close the connection. The default is <strong>0</strong>, which
+means infinite: shibari-server-tcp will wait forever until the network decongests in
+order to send its answer. </dd>
+</dl>
+
+<div id="notes">
+<h2> Notes </h2>
+</div>
+
+<ul>
+ <li> The DNS database can be changed at any time via an invocation of
+<a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a>.
+shibari-server-tcp will keep using the old data until its current stream
+ends and it exits. The next instance of shibari-server-tcp,
+spawned by the super-server, will use the new data. </li>
+ <li> shibari-server-tcp is a drop-in replacement for
+<a href="https://cr.yp.to/djbdns/axfrdns.html">axfrdns</a>, with one
+caveat: client location information needs to be migrated from the DNS
+database to LOC definitions in the TCP access rules database. For instance,
+if you have a <tt>%lo:1.2.3</tt> line in your text data file, you need to
+add the following entries to your TCP access rules database:
+  <ul>
+   <li> <tt>ip4/1.2.3.0_24/allow</tt> (may be empty) </li>
+   <li> <tt>ip4/1.2.3.0_24/env/LOC</tt> containing <tt>lo</tt> </li>
+  </ul> </li>
+ <li> If you are using such an access rules database via a
+<a href="//skarnet.org/software/s6-networking/s6-tcpserver-access.html">s6-tcpserver-access</a>
+invocation, make sure your
+<a href="shibari-server-udp.html">shibari-server-udp</a> service is using the
+same database via the <tt>-i</tt> or <tt>-x</tt> option. You
+don't want to give different permissions, or different location information,
+depending on whether a query is made over TCP or UDP. </li>
+</ul>
+
+</body>
+</html>
