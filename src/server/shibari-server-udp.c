@@ -200,7 +200,7 @@ int main (int argc, char const *const *argv)
     if (x[0].revents & IOPAUSE_EXCEPT) strerr_dief1x(111, "trouble with selfpipe") ;
     if (x[0].revents & IOPAUSE_READ) { handle_signals() ; continue ; }
 
-    r = sanitize_read(socket_recv46(x[1].fd, buf, 512, &remoteip, &remoteport)) ;
+    r = sanitize_read(socket_recv46(x[1].fd, buf, 512, &remoteip, &remoteport, ip46_is6(&localip))) ;
     if (!r) continue ;
     if (r == -1) strerr_diefu1sys(111, "recv from socket") ;
     if (rulestype && !check_rules(&remoteip, &params, &loc)) continue ;
