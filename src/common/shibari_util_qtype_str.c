@@ -13,7 +13,7 @@ static char const *const qtype_table[262] =
   "MF",
   "CNAME",
   "SOA",
-  "MB"
+  "MB",
   "MG",
   "MR",
   "NULL",
@@ -116,7 +116,6 @@ static char const *const qtype_table[262] =
   "LP",
   "EUI48",
   "EUI64",
-
   "unassigned",
   "unassigned",
   "unassigned",
@@ -256,7 +255,6 @@ static char const *const qtype_table[262] =
   "unassigned",
   "unassigned",
   "unassigned",
-
   "TKEY",
   "TSIG",
   "IXFR",

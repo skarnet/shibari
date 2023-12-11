@@ -10,6 +10,7 @@
 #include <skalibs/uint16.h>
 #include <skalibs/uint32.h>
 #include <skalibs/types.h>
+#include <skalibs/bytestr.h>
 #include <skalibs/strerr.h>
 #include <skalibs/buffer.h>
 #include <skalibs/sgetopt.h>
@@ -74,27 +75,29 @@ static void add (shibari_packet *pkt, shibari_tdb_entry const *entry, int prefix
   }
 }
 
+#define SEPS "/,; \t\n"
+
 static inline int axfr (char const *axfrok, char const *loc, cdb const *tdb, s6dns_message_header_t const *qhdr, s6dns_domain_t const *zone, shibari_packet *pkt, tain const *deadline, tain const *wstamp)
 {
   shibari_tdb_entry soa ;
   shibari_tdb_entry cur ;
   uint32_t pos = CDB_TRAVERSE_INIT() ;
-  if (!axfrok) return 5 ;
-  if (axfrok[0] != '*')
+  if (axfrok && axfrok[0] != '*')
   {
     s6dns_domain_t decoded = *zone ;
     unsigned int zonelen ;
     size_t len = strlen(axfrok) + 1 ;
-    char buf[256] ;
+    char zbuf[256] ;
     if (!s6dns_domain_decode(&decoded)) return 1 ;
-    zonelen = s6dns_domain_tostring(buf, 256, &decoded) ;
-    while (len >= zonelen)
+    zonelen = s6dns_domain_tostring(zbuf, 256, &decoded) ;
+    while (len)
     {
-      if (!strncmp(buf, axfrok, zonelen) && (!axfrok[zonelen] || strchr("/,; \t\n", axfrok[zonelen]))) break ;
-      axfrok += zonelen + 1 ;
-      len -= zonelen + 1 ;
+      size_t seppos = byte_in(axfrok, len, SEPS, sizeof(SEPS)) ;
+      if (!memcmp(zbuf, axfrok, seppos) && (seppos == zonelen || seppos + 1 == zonelen)) break ;
+      axfrok += seppos + 1 ;
+      len -= seppos + 1 ;
     }
-    if (len < zonelen) return 5 ;
+    if (!len) return 5 ;
   }
 
   {
@@ -193,7 +196,7 @@ int main (int argc, char const *const *argv)
     if (w == 1) strerr_dief1x(1, "invalid request") ;
     if (!w)
     {
-      if (errno != EPIPE && errno != ETIMEDOUT)
+      if (errno && errno != EPIPE && errno != ETIMEDOUT)
         strerr_diefu1sys(111, "read from stdin") ;
       else break ;
     }
