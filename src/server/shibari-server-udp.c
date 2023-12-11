@@ -15,18 +15,21 @@
 #include <skalibs/error.h>
 #include <skalibs/strerr.h>
 #include <skalibs/sgetopt.h>
+#include <skalibs/allreadwrite.h>
 #include <skalibs/tai.h>
 #include <skalibs/socket.h>
 #include <skalibs/ip46.h>
 #include <skalibs/cdb.h>
 #include <skalibs/sig.h>
+#include <skalibs/iopause.h>
+#include <skalibs/selfpipe.h>
 
 #include <s6/accessrules.h>
 
 #include <shibari/common.h>
 #include <shibari/server.h>
 
-#define USAGE "shibari-server-udp [ -v verbosity ] [ -d notif ] [ -f cdbfile ] [ -i rulesdir | -x rulesfile ] [ -p port ] ip"
+#define USAGE "shibari-server-udp [ -v verbosity ] [ -d notif ] [ -f cdbfile ] [ -w wtimeout ] [ -i rulesdir | -x rulesfile ] [ -p port ] ip"
 #define dieusage() strerr_dieusage(100, USAGE)
 
 #define VAR "LOC"
@@ -39,16 +42,9 @@ static unsigned int rulestype = 0 ;
 static int cont = 1 ;
 static uint32_t verbosity = 1 ;
 
-static void on_term (int s)
-{
-  (void)s ;
-  cont = 0 ;
-}
-
-static void on_hup (int s)
+static inline void reload_cdbs (void)
 {
   cdb newtdb = CDB_ZERO ;
-  (void)s ;
   if (!cdb_init(&newtdb, tdbfile))
   {
     if (verbosity) strerr_warnwu2sys("reopen DNS data file ", tdbfile) ;
@@ -102,10 +98,23 @@ static int check_rules (ip46 const *remoteip, s6_accessrules_params_t *params, c
   return 1 ;
 }
 
+static inline void handle_signals (void)
+{
+  for (;;) switch (selfpipe_read())
+  {
+    case -1 : strerr_diefu1sys(111, "read selfpipe") ;
+    case 0 : return ;
+    case SIGTERM : cont = 0 ; break ;
+    case SIGHUP : reload_cdbs() ; break ;
+    default : break ;
+  }
+}
+
 int main (int argc, char const *const *argv)
 {
+  iopause_fd x[2] = { { .events = IOPAUSE_READ }, { .events = IOPAUSE_READ } } ;
+  tain wtto = TAIN_INFINITE_RELATIVE ;
   s6_accessrules_params_t params = S6_ACCESSRULES_PARAMS_ZERO ;
-  int s ;
   unsigned int notif = 0 ;
   char buf[512] ;
   shibari_packet pkt = SHIBARI_PACKET_INIT(buf, 512, 0) ;
@@ -115,16 +124,18 @@ int main (int argc, char const *const *argv)
   PROG = "shibari-server-udp" ;
 
   {
+    unsigned int wtimeout = 0 ;
     subgetopt l = SUBGETOPT_ZERO ;
     for (;;)
     {
-      int opt = subgetopt_r(argc, argv, "v:d:f:i:x:p:", &l) ;
+      int opt = subgetopt_r(argc, argv, "v:d:f:w:i:x:p:", &l) ;
       if (opt == -1) break ;
       switch (opt)
       {
         case 'v' : if (!uint320_scan(l.arg, &verbosity)) dieusage() ; break ;
         case 'd' : if (!uint0_scan(l.arg, &notif)) dieusage() ; break ;
         case 'f' : tdbfile = l.arg ; break ;
+        case 'w' : if (!uint0_scan(l.arg, &wtimeout)) dieusage() ; break ;
         case 'i' : rulesfile = l.arg ; rulestype = 1 ; break ;
         case 'x' : rulesfile = l.arg ; rulestype = 2 ; break ;
         case 'p' : if (!uint160_scan(l.arg, &localport)) dieusage() ; break ;
@@ -132,6 +143,7 @@ int main (int argc, char const *const *argv)
       }
     }
     argc -= l.ind ; argv += l.ind ;
+    if (wtimeout) tain_from_millisecs(&wtto, wtimeout) ;
   }
 
   if (!argc) dieusage() ;
@@ -145,14 +157,24 @@ int main (int argc, char const *const *argv)
 
   close(0) ;
   close(1) ;
-  s = socket_udp46_b(ip46_is6(&localip)) ;
-  if (s == -1) strerr_diefu1sys(111, "create socket") ;
-  if (socket_bind46_reuse(s, &localip, localport) == -1) strerr_diefu1sys(111, "bind socket") ;
+  x[0].fd = selfpipe_init() ;
+  if (x[0].fd == -1) strerr_diefu1sys(111, "create selfpipe") ;
+  if (!sig_altignore(SIGPIPE)) strerr_diefu1sys(111, "ignore SIGPIPE") ;
+  {
+    sigset_t set ;
+    sigemptyset(&set) ;
+    sigaddset(&set, SIGHUP) ;
+    sigaddset(&set, SIGTERM) ;
+    if (!selfpipe_trapset(&set)) strerr_diefu1sys(111, "trap signals") ;
+  }
 
   if (!cdb_init(&tdb, tdbfile)) strerr_diefu2sys(111, "open cdb file ", tdbfile) ;
   if (rulestype == 2 && !cdb_init(&rules, rulesfile)) strerr_diefu2sys(111, "open rules file ", rulesfile) ;
-  if (!sig_catch(SIGHUP, &on_hup)) strerr_diefu1sys(111, "catch SIGHUP") ;
-  if (!sig_catch(SIGTERM, &on_term)) strerr_diefu1sys(111, "catch SIGTERM") ;
+
+  x[1].fd = socket_udp46_nb(ip46_is6(&localip)) ;
+  if (x[1].fd == -1) strerr_diefu1sys(111, "create socket") ;
+  if (socket_bind46_reuse(x[1].fd, &localip, localport) == -1) strerr_diefu1sys(111, "bind socket") ;
+  if (!tain_now_set_stopwatch_g()) strerr_diefu1sys(111, "initialize clock") ;
 
   shibari_log_start(verbosity, &localip, localport) ;
   if (notif)
@@ -161,9 +183,9 @@ int main (int argc, char const *const *argv)
     close(notif) ;
   }
 
-  for (; cont ; sig_unblock(SIGHUP))
+  while (cont)
   {
-    tain wstamp ;
+    tain wstamp = TAIN_INFINITE ;
     char const *loc = 0 ;
     s6dns_message_header_t hdr ;
     s6dns_message_counts_t counts ;
@@ -174,10 +196,13 @@ int main (int argc, char const *const *argv)
     uint16_t remoteport ;
     ip46 remoteip ;
 
-    r = socket_recv46(s, buf, 512, &remoteip, &remoteport) ;
+    if (iopause_g(x, 2, &wstamp) == -1) strerr_diefu1sys(111, "iopause") ;
+    if (x[0].revents & IOPAUSE_EXCEPT) strerr_dief1x(111, "trouble with selfpipe") ;
+    if (x[0].revents & IOPAUSE_READ) { handle_signals() ; continue ; }
+
+    r = sanitize_read(socket_recv46(x[1].fd, buf, 512, &remoteip, &remoteport)) ;
+    if (!r) continue ;
     if (r == -1) strerr_diefu1sys(111, "recv from socket") ;
-    if (!r) strerr_dief1x(111, "huh? got EOF on a connection-less socket") ;
-    sig_block(SIGHUP) ;
     if (rulestype && !check_rules(&remoteip, &params, &loc)) continue ;
     if (!s6dns_message_parse_init(&hdr, &counts, buf, r, &rcode)) continue ;
     if (hdr.opcode) { rcode = 4 ; goto answer ; }
@@ -198,7 +223,8 @@ int main (int argc, char const *const *argv)
       shibari_packet_end(&pkt) ;
     }
     shibari_log_answer(verbosity, &pkt.hdr, pkt.pos) ;
-    if (socket_send46(s, buf, pkt.pos, &remoteip, remoteport) < pkt.pos && verbosity)
+    tain_add_g(&wstamp, &wtto) ;
+    if (socket_sendnb46_g(x[1].fd, buf, pkt.pos, &remoteip, remoteport, &wstamp) < pkt.pos && verbosity)
       strerr_warnwu1sys("send answer") ;
   }
 

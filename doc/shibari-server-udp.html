@@ -28,7 +28,7 @@ answers DNS queries it receives, until it is killed.
 </div>
 
 <pre>
-     shibari-server-udp [ -v <em>verbosity</em> ] [ -d <em>notif</em> ] [ -f <em>tdbfile</em> ] [ -i <em>rulesdir</em> ] [ -x <em>rulesfile</em> ] [ -p <em>port</em> ] <em>ip</em>
+     shibari-server-udp [ -v <em>verbosity</em> ] [ -d <em>notif</em> ] [ -f <em>tdbfile</em> ] [ -w <em>wtimeout</em> ] [ -i <em>rulesdir</em> ] [ -x <em>rulesfile</em> ] [ -p <em>port</em> ] <em>ip</em>
 </pre>
 
 <ul>
@@ -82,6 +82,14 @@ no readiness notification is sent. </dd>
  <dd> Read DNS data from <em>tdbfile</em>.
 The default is <strong><tt>data.cdb</tt></strong>, in the current working
 directory of the shibari-server-udp process. </dd>
+
+ <dt> -w <em>wtimeout</em> </dt>
+ <dd> Write timeout. If shibari-server-udp is unable
+to send its answer in <em>wtimeout</em> milliseconds, which means the network is
+congested, give up and go back to listening to other queries.
+The default is <strong>0</strong>, which means infinite: shibari-server-udp will
+wait forever until the network decongests in order to send its answer (which
+may prevent it from servicing other queries). </dd>
 
  <dt> -i <em>rulesdir</em> </dt>
  <dd> Use <em>rulesdir</em> as a filesystem-based
