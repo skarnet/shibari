@@ -28,7 +28,7 @@ answers DNS queries it receives, until it is killed.
 </div>
 
 <pre>
-     shibari-server-udp [ -v <em>verbosity</em> ] [ -d <em>notif</em> ] [ -f <em>tdbfile</em> ] [ -w <em>wtimeout</em> ] [ -i <em>rulesdir</em> ] [ -x <em>rulesfile</em> ] [ -p <em>port</em> ] <em>ip</em>
+     shibari-server-udp [ -U ] [ -v <em>verbosity</em> ] [ -d <em>notif</em> ] [ -f <em>tdbfile</em> ] [ -w <em>wtimeout</em> ] [ -i <em>rulesdir</em> ] [ -x <em>rulesfile</em> ] [ -p <em>port</em> ] <em>ip</em>
 </pre>
 
 <ul>
@@ -65,6 +65,12 @@ underlying operating system. </dd>
 </div>
 
 <dl>
+
+ <dt> -U </dt>
+ <dd> Drop privileges. shibari-server-udp will expect the UID and GID
+environment variables to contain a suitable uid and gid, and will change
+to this uid and gid after binding its socket. </dd>
+
  <dt> -v <em>verbosity</em> </dt>
  <dd> Be more or less verbose.
 A <em>verbosity</em> of 0 means no warnings, no logs, only error messages. 1

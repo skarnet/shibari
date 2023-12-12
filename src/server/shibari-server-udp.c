@@ -29,7 +29,7 @@
 #include <shibari/common.h>
 #include <shibari/server.h>
 
-#define USAGE "shibari-server-udp [ -v verbosity ] [ -d notif ] [ -f cdbfile ] [ -w wtimeout ] [ -i rulesdir | -x rulesfile ] [ -p port ] ip"
+#define USAGE "shibari-server-udp [ -U ] [ -v verbosity ] [ -d notif ] [ -f cdbfile ] [ -w wtimeout ] [ -i rulesdir | -x rulesfile ] [ -p port ] ip"
 #define dieusage() strerr_dieusage(100, USAGE)
 
 #define VAR "LOC"
@@ -116,6 +116,8 @@ int main (int argc, char const *const *argv)
   tain wtto = TAIN_INFINITE_RELATIVE ;
   s6_accessrules_params_t params = S6_ACCESSRULES_PARAMS_ZERO ;
   unsigned int notif = 0 ;
+  uid_t uid = 0 ;
+  gid_t gid = 0 ;
   char buf[512] ;
   shibari_packet pkt = SHIBARI_PACKET_INIT(buf, 512, 0) ;
   uint16_t localport = 53 ;
@@ -125,13 +127,15 @@ int main (int argc, char const *const *argv)
 
   {
     unsigned int wtimeout = 0 ;
+    int flagdrop = 0 ;
     subgetopt l = SUBGETOPT_ZERO ;
     for (;;)
     {
-      int opt = subgetopt_r(argc, argv, "v:d:f:w:i:x:p:", &l) ;
+      int opt = subgetopt_r(argc, argv, "Uv:d:f:w:i:x:p:", &l) ;
       if (opt == -1) break ;
       switch (opt)
       {
+        case 'U' : flagdrop = 1 ; break ;
         case 'v' : if (!uint320_scan(l.arg, &verbosity)) dieusage() ; break ;
         case 'd' : if (!uint0_scan(l.arg, &notif)) dieusage() ; break ;
         case 'f' : tdbfile = l.arg ; break ;
@@ -143,11 +147,19 @@ int main (int argc, char const *const *argv)
       }
     }
     argc -= l.ind ; argv += l.ind ;
+    if (!argc) dieusage() ;
+    if (!ip46_scan(argv[0], &localip)) dieusage() ;
+    if (flagdrop)
+    {
+      char const *x = getenv("UID") ;
+      if (!x) strerr_dienotset(100, "UID") ;
+      if (!uid0_scan(x, &uid)) strerr_dieinvalid(100, "UID") ;
+      x = getenv("GID") ;
+      if (!x) strerr_dienotset(100, "GID") ;
+      if (!uid0_scan(x, &gid)) strerr_dieinvalid(100, "GID") ;
+    }
     if (wtimeout) tain_from_millisecs(&wtto, wtimeout) ;
   }
-
-  if (!argc) dieusage() ;
-  if (!ip46_scan(argv[0], &localip)) dieusage() ;
 
   if (notif)
   {
@@ -174,6 +186,9 @@ int main (int argc, char const *const *argv)
   x[1].fd = socket_udp46_nb(ip46_is6(&localip)) ;
   if (x[1].fd == -1) strerr_diefu1sys(111, "create socket") ;
   if (socket_bind46_reuse(x[1].fd, &localip, localport) == -1) strerr_diefu1sys(111, "bind socket") ;
+
+  if (gid && setgid(gid) == -1) strerr_diefu1sys(111, "setgid") ;
+  if (uid && setuid(uid) == -1) strerr_diefu1sys(111, "setuid") ;
   if (!tain_now_set_stopwatch_g()) strerr_diefu1sys(111, "initialize clock") ;
 
   shibari_log_start(verbosity, &localip, localport) ;
