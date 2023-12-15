@@ -28,7 +28,7 @@ void shibari_log_answer (uint32_t v, s6dns_message_header_t const *hdr, uint16_t
     fmt[pos++] = '+' ;
     pos += uint16_fmt(fmt + pos, hdr->counts.ns) ;
     fmt[pos++] = '+' ;
-    pos += uint16_fmt(fmt + pos, hdr->counts.qd) ;
+    pos += uint16_fmt(fmt + pos, hdr->counts.nr) ;
     fmt[pos] = 0 ;
     fmtl[uint16_fmt(fmtl, len)] = 0 ;
     strerr_warni5x("answer 0 noerror ", fmt, " len ", fmtl, hdr->tc ? " tc" : "") ;
