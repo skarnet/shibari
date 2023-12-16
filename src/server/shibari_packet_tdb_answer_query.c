@@ -64,6 +64,7 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
       }
       switch (entry.type)
       {
+        case SHIBARI_T_SOA : goto got ;  /* wtf tinydns-data putting several SOA */
         case SHIBARI_T_NS :
         case SHIBARI_T_MX :
         case SHIBARI_T_CNAME :  /* we're not supposed to but meh */
@@ -75,6 +76,7 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
     wildpos += 1 + q->s[wildpos] ;
   }
 
+ got:
   if (!flagyxdomain) pkt->hdr.rcode = 3 ;
 
   if (!pkt->hdr.counts.an)
