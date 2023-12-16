@@ -16,6 +16,7 @@
 #include <skalibs/sgetopt.h>
 #include <skalibs/sig.h>
 #include <skalibs/tai.h>
+#include <skalibs/djbunix.h>
 #include <skalibs/ip46.h>
 #include <skalibs/cdb.h>
 #include <skalibs/unix-timed.h>
@@ -176,6 +177,8 @@ int main (int argc, char const *const *argv)
     if (!cdb_init(&tdb, tdbfile)) strerr_diefu2sys(111, "open DNS database file ", tdbfile) ;
   }
 
+  if (ndelay_on(0) == -1 || ndelay_on(1) == -1)
+    strerr_diefu1sys(111, "set socket nonblocking") ;
   if (!sig_altignore(SIGPIPE)) strerr_diefu1sys(111, "ignore SIGPIPE") ;
   tain_now_set_stopwatch_g() ;
   shibari_log_start(verbosity, &remoteip, remoteport) ;
