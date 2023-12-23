@@ -143,7 +143,7 @@ slash-separated list of zones; these are the allowed zones. </dd>
 
  <dt> LOC </dt>
  <dd> If this variable is set, it defines a client location that is used to
-implement views. A client location is at most two charaters; if the value
+implement views. A client location is at most two characters; if the value
 is <tt>lo</tt>, then the client will be granted access to DNS data guarded
 by a <tt>%lo</tt> location indicator in the
 <a href="https://cr.yp.to/djbdns/tinydns-data.html">tinydns-data</a> file.
@@ -206,7 +206,7 @@ add the following entries to your TCP access rules database:
    <li> <tt>ip4/1.2.3.0_24/allow</tt> (may be empty) </li>
    <li> <tt>ip4/1.2.3.0_24/env/LOC</tt> containing <tt>lo</tt> </li>
   </ul> </li>
- <li> If you are using such an access rules database via a
+ <li> If you are using such an access rules database via an
 <a href="//skarnet.org/software/s6-networking/s6-tcpserver-access.html">s6-tcpserver-access</a>
 invocation, make sure your
 <a href="shibari-server-udp.html">shibari-server-udp</a> service is using the
