@@ -9,5 +9,6 @@ shibari_tdb_read_entry.o
 shibari_packet_add_glue.o
 shibari_packet_assert_authority.o
 shibari_packet_tdb_answer_query.o
+shibari_packet_tdb_axfr.o
 -ls6dns
 -lskarnet

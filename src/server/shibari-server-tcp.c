@@ -10,7 +10,6 @@
 #include <skalibs/uint16.h>
 #include <skalibs/uint32.h>
 #include <skalibs/types.h>
-#include <skalibs/bytestr.h>
 #include <skalibs/strerr.h>
 #include <skalibs/buffer.h>
 #include <skalibs/sgetopt.h>
@@ -61,76 +60,6 @@ static inline void get_socket_info (ip46 *localip, uint16_t *localport, ip46 *re
     if (!x) strerr_dienotset(100, var) ;
     if (!uint160_scan(x, remoteport)) strerr_dieinvalid(100, var) ;
   }
-}
-
-static void add (shibari_packet *pkt, shibari_tdb_entry const *entry, int prefixlen, uint16_t id, s6dns_domain_t const *zone, tain const *deadline)
-{
-  if (!shibari_packet_add_rr(pkt, entry, prefixlen, 0, 2))
-  {
-    shibari_packet_end(pkt) ;
-    if (!buffer_timed_put_g(buffer_1, pkt->buf - 2, pkt->pos + 2, deadline))
-      strerr_diefu1sys(111, "write to stdout") ;
-    shibari_packet_begin(pkt, id, zone, SHIBARI_T_AXFR) ;
-    if (!shibari_packet_add_rr(pkt, entry, prefixlen, 0, 2))
-      strerr_dief1x(101, "can't happen: record too long to fit in single packet") ;
-  }
-}
-
-#define SEPS "/,; \t\n"
-
-static inline int axfr (char const *axfrok, char const *loc, cdb const *tdb, s6dns_message_header_t const *qhdr, s6dns_domain_t const *zone, shibari_packet *pkt, tain const *deadline, tain const *wstamp)
-{
-  shibari_tdb_entry soa ;
-  shibari_tdb_entry cur ;
-  uint32_t pos = CDB_TRAVERSE_INIT() ;
-  if (axfrok && axfrok[0] != '*')
-  {
-    s6dns_domain_t decoded = *zone ;
-    unsigned int zonelen ;
-    size_t len = strlen(axfrok) + 1 ;
-    char zbuf[256] ;
-    if (!s6dns_domain_decode(&decoded)) return 1 ;
-    zonelen = s6dns_domain_tostring(zbuf, 256, &decoded) ;
-    while (len)
-    {
-      size_t seppos = byte_in(axfrok, len, SEPS, sizeof(SEPS)) ;
-      if (!memcmp(zbuf, axfrok, seppos) && (seppos == zonelen || seppos + 1 == zonelen)) break ;
-      axfrok += seppos + 1 ;
-      len -= seppos + 1 ;
-    }
-    if (!len) return 5 ;
-  }
-
-  {
-    cdb_find_state state = CDB_FIND_STATE_ZERO ;
-    int r = shibari_tdb_read_entry(tdb, &state, &soa, zone->s, zone->len, SHIBARI_T_SOA, 0, loc, wstamp, 0) ;
-    if (r == -1) return 2 ;
-    if (!r) return 9 ;
-  }
-
-  shibari_packet_begin(pkt, qhdr->id, zone, SHIBARI_T_AXFR) ;
-  pkt->hdr.aa = 1 ;
-  add(pkt, &soa, 0, qhdr->id, zone, deadline) ;
-
-  for (;;)
-  {
-    cdb_data data ;
-    int prefixlen ;
-    int r = cdb_traverse_next(tdb, &cur.key, &data, &pos) ;
-    if (r == -1) return 2 ;
-    if (!r) break ;
-    prefixlen = shibari_util_get_prefixlen(cur.key.s, cur.key.len, zone->s, zone->len) ;
-    if (prefixlen == -1) continue ;
-    r = shibari_tdb_entry_parse(&cur, data.s, data.len, SHIBARI_T_ANY, 2, loc, wstamp) ;
-    if (r == -1) return 2 ;
-    if (!r) continue ;
-    if (cur.type == SHIBARI_T_SOA) continue ;
-    add(pkt, &cur, prefixlen, qhdr->id, zone, deadline) ;
-  }
-
-  add(pkt, &soa, 0, qhdr->id, zone, deadline) ;
-  shibari_packet_end(pkt) ;
-  return 0 ;
 }
 
 int main (int argc, char const *const *argv)
@@ -210,20 +139,22 @@ int main (int argc, char const *const *argv)
 
     if (!s6dns_message_parse_init(&hdr, &counts, buf, len, &rcode))
       strerr_diefu1sys(111, "parse message") ;
-    if (hdr.opcode) { rcode = 4 ; goto answer ; }
-    if (!s6dns_message_parse_question(&counts, &name, &qtype, buf, len, &rcode) || !s6dns_domain_encode(&name))
-    {
+    if (hdr.opcode) rcode = 4 ;
+    else if (!s6dns_message_parse_question(&counts, &name, &qtype, buf, len, &rcode) || !s6dns_domain_encode(&name))
       rcode = errno == ENOTSUP ? 4 : 1 ;
-      goto answer ;
+    else
+    {
+      shibari_log_query(verbosity, &name, qtype) ;
+      tain_add_g(&deadline, &wtto) ;
+      tain_wallclock_read(&wstamp) ;
+      if (qtype == SHIBARI_T_AXFR)
+      {
+        int r = shibari_packet_tdb_axfr_g(buffer_1, axfrok, loc, &tdb, &hdr, &name, &pkt, &deadline, &wstamp) ;
+        if (r < 0) strerr_diefu1sys(111, "write to stdout") ;
+        else rcode = r ;
+      }
+      else rcode = shibari_packet_tdb_answer_query(&pkt, &tdb, &hdr, &name, qtype, loc, &wstamp) ;
     }
-    shibari_log_query(verbosity, &name, qtype) ;
-    tain_add_g(&deadline, &wtto) ;
-    tain_wallclock_read(&wstamp) ;
-    rcode = qtype == SHIBARI_T_AXFR ?
-      axfr(axfrok, loc, &tdb, &hdr, &name, &pkt, &deadline, &wstamp) :
-      shibari_packet_tdb_answer_query(&pkt, &tdb, &hdr, &name, qtype, loc, &wstamp) ;
-
- answer:
     if (rcode && rcode != 3)
     {
       shibari_packet_begin(&pkt, hdr.id, &name, qtype) ;

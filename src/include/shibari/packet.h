@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 
+#include <skalibs/buffer.h>
 #include <skalibs/cdb.h>
 #include <skalibs/tai.h>
 
@@ -35,5 +36,7 @@ extern unsigned int shibari_packet_add_glue (shibari_packet *, cdb const *, char
 extern unsigned int shibari_packet_assert_authority (shibari_packet *, cdb const *, char const *, uint16_t, uint16_t, char const *, tain const *) ;
 
 extern unsigned int shibari_packet_tdb_answer_query (shibari_packet *, cdb const *, s6dns_message_header_t const *, s6dns_domain_t const *, uint16_t, char const *, tain const *) ;
+extern int shibari_packet_tdb_axfr (buffer *, char const *, char const *, cdb const *, s6dns_message_header_t const *, s6dns_domain_t const *, shibari_packet *, tain const *, tain const *, tain *) ;
+#define shibari_packet_tdb_axfr_g(b, axfrok, loc, tdb, qhdr, zone, pkt, deadline, wstamp) shibari_packet_tdb_axfr(b, axfrok, loc, tdb, qhdr, zone, pkt, deadline, (wstamp), &STAMP)
 
 #endif
