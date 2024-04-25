@@ -29,7 +29,6 @@ static unsigned int childzone (shibari_packet *pkt, cdb const *tdb, s6dns_domain
 unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *tdb, s6dns_message_header_t const *qhdr, s6dns_domain_t const *q, uint16_t qtype, char const *loc, tain const *stamp)
 {
   unsigned int rcode = 0 ;
-  cdb_find_state state = CDB_FIND_STATE_ZERO ;
   uint32_t flagyxdomain = 0 ;
   int nplen, zplen ;
   uint16_t gluetype = 0 ;
@@ -51,13 +50,14 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
 
   while (wildpos <= zplen)
   {
+    cdb_find_state state = CDB_FIND_STATE_ZERO ;
     for (;;)
     {
       shibari_tdb_entry entry ;
-      int r = shibari_tdb_read_entry(tdb, &state, &entry, q->s + wildpos, q->len + wildpos, qtype, !!wildpos, loc, stamp, &flagyxdomain) ;
+      int r = shibari_tdb_read_entry(tdb, &state, &entry, q->s + wildpos, q->len - wildpos, qtype, !!wildpos, loc, stamp, &flagyxdomain) ;
       if (r == -1) return 2 ;
       if (!r) break ;
-      if (!shibari_packet_add_rr(pkt, &entry, 0, 0, 2))
+      if (!shibari_packet_add_rr(pkt, &entry, 0, wildpos, 2))
       {
         pkt->hdr.tc = 1 ;
         return 0 ;
@@ -72,7 +72,7 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
         default : break ;
       }
     }
-    if (pkt->hdr.counts.an) break ;
+    if (pkt->hdr.counts.an || flagyxdomain) break ;
     wildpos += 1 + q->s[wildpos] ;
   }
 
