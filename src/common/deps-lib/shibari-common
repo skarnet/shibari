@@ -6,5 +6,7 @@ shibari_log_start.o
 shibari_util_qtype_num.o
 shibari_util_qtype_str.o
 shibari_util_rcode_str.o
+shibari_util_canon_domain.o
 shibari_util_get_prefixlen.o
+-ls6dns
 -lskarnet

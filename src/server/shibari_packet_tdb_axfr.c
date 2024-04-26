@@ -34,15 +34,15 @@ int shibari_packet_tdb_axfr (buffer *b, char const *axfrok, char const *loc, cdb
 {
   shibari_tdb_entry soa ;
   shibari_tdb_entry cur ;
+  s6dns_domain_t z = *zone ;
   uint32_t pos = CDB_TRAVERSE_INIT() ;
   if (axfrok && axfrok[0] != '*')
   {
-    s6dns_domain_t decoded = *zone ;
     unsigned int zonelen ;
     size_t len = strlen(axfrok) + 1 ;
     char zbuf[256] ;
-    if (!s6dns_domain_decode(&decoded)) return 1 ;
-    zonelen = s6dns_domain_tostring(zbuf, 256, &decoded) ;
+    if (!s6dns_domain_decode(&z)) return 1 ;
+    zonelen = s6dns_domain_tostring(zbuf, 256, &z) ;
     while (len)
     {
       size_t seppos = byte_in(axfrok, len, SEPS, sizeof(SEPS)) ;
@@ -53,9 +53,11 @@ int shibari_packet_tdb_axfr (buffer *b, char const *axfrok, char const *loc, cdb
     if (!len) return 5 ;
   }
 
+  shibari_util_canon_domain(&z, zone) ;
+
   {
     cdb_find_state state = CDB_FIND_STATE_ZERO ;
-    int r = shibari_tdb_read_entry(tdb, &state, &soa, zone->s, zone->len, SHIBARI_T_SOA, 0, loc, wstamp, 0) ;
+    int r = shibari_tdb_read_entry(tdb, &state, &soa, z.s, z.len, SHIBARI_T_SOA, 0, loc, wstamp, 0) ;
     if (r == -1) return 2 ;
     if (!r) return 9 ;
   }
@@ -71,7 +73,7 @@ int shibari_packet_tdb_axfr (buffer *b, char const *axfrok, char const *loc, cdb
     int r = cdb_traverse_next(tdb, &cur.key, &data, &pos) ;
     if (r == -1) return 2 ;
     if (!r) break ;
-    prefixlen = shibari_util_get_prefixlen(cur.key.s, cur.key.len, zone->s, zone->len) ;
+    prefixlen = shibari_util_get_prefixlen(cur.key.s, cur.key.len, z.s, z.len) ;
     if (prefixlen == -1) continue ;
     r = shibari_tdb_entry_parse(&cur, data.s, data.len, SHIBARI_T_ANY, 2, loc, wstamp) ;
     if (r == -1) return 2 ;
