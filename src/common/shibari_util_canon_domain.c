@@ -16,5 +16,5 @@ void shibari_util_canon_domain (s6dns_domain_t *canon, s6dns_domain_t const *ori
     uint8_t len = orig->s[i] ;
     canon->s[i++] = len ;
     for (; len-- ; i++) canon->s[i] = tolower(orig->s[i]) ;
-  } 
+  }
 }
