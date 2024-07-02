@@ -16,6 +16,7 @@ src/cache/dcache_init.o src/cache/dcache_init.lo: src/cache/dcache_init.c src/in
 src/cache/dcache_load.o src/cache/dcache_load.lo: src/cache/dcache_load.c src/include/shibari/dcache.h
 src/cache/dcache_save.o src/cache/dcache_save.lo: src/cache/dcache_save.c src/include/shibari/dcache.h
 src/cache/dcache_search.o src/cache/dcache_search.lo: src/cache/dcache_search.c src/cache/dcache-internal.h src/include/shibari/dcache.h
+src/cache/shibari-cache.o src/cache/shibari-cache.lo: src/cache/shibari-cache.c src/include/shibari/cache.h src/include/shibari/common.h
 src/common/shibari_log_answer.o src/common/shibari_log_answer.lo: src/common/shibari_log_answer.c src/include/shibari/log.h src/include/shibari/util.h
 src/common/shibari_log_exit.o src/common/shibari_log_exit.lo: src/common/shibari_log_exit.c src/include/shibari/log.h
 src/common/shibari_log_query.o src/common/shibari_log_query.lo: src/common/shibari_log_query.c src/include/shibari/log.h src/include/shibari/util.h
@@ -26,6 +27,13 @@ src/common/shibari_util_get_prefixlen.o src/common/shibari_util_get_prefixlen.lo
 src/common/shibari_util_qtype_num.o src/common/shibari_util_qtype_num.lo: src/common/shibari_util_qtype_num.c src/include/shibari/util.h
 src/common/shibari_util_qtype_str.o src/common/shibari_util_qtype_str.lo: src/common/shibari_util_qtype_str.c src/include/shibari/util.h
 src/common/shibari_util_rcode_str.o src/common/shibari_util_rcode_str.lo: src/common/shibari_util_rcode_str.c src/include/shibari/util.h
+src/config/conftree.o src/config/conftree.lo: src/config/conftree.c src/config/shibari-cache-config-internal.h
+src/config/defaults.o src/config/defaults.lo: src/config/defaults.c src/config/shibari-cache-config-internal.h
+src/config/lexparse.o src/config/lexparse.lo: src/config/lexparse.c src/config/shibari-cache-config-internal.h src/include/shibari/config.h
+src/config/node.o src/config/node.lo: src/config/node.c src/config/shibari-cache-config-internal.h
+src/config/repo.o src/config/repo.lo: src/config/repo.c src/config/shibari-cache-config-internal.h
+src/config/shibari-cache-config.o src/config/shibari-cache-config.lo: src/config/shibari-cache-config.c src/config/shibari-cache-config-internal.h src/include/shibari/config.h
+src/config/util.o src/config/util.lo: src/config/util.c src/config/shibari-cache-config-internal.h
 src/server/shibari-server-tcp.o src/server/shibari-server-tcp.lo: src/server/shibari-server-tcp.c src/include/shibari/common.h src/include/shibari/server.h
 src/server/shibari-server-udp.o src/server/shibari-server-udp.lo: src/server/shibari-server-udp.c src/include/shibari/common.h src/include/shibari/server.h
 src/server/shibari_packet_add_glue.o src/server/shibari_packet_add_glue.lo: src/server/shibari_packet_add_glue.c src/include/shibari/constants.h src/include/shibari/packet.h src/include/shibari/tdb.h src/include/shibari/util.h
@@ -55,6 +63,8 @@ libshibari-common.a.xyzzy: src/common/shibari_log_answer.lo src/common/shibari_l
 endif
 libshibari-common.so.xyzzy: EXTRA_LIBS := -ls6dns -lskarnet
 libshibari-common.so.xyzzy: src/common/shibari_log_answer.lo src/common/shibari_log_exit.lo src/common/shibari_log_query.lo src/common/shibari_log_queryplus.lo src/common/shibari_log_start.lo src/common/shibari_util_qtype_num.lo src/common/shibari_util_qtype_str.lo src/common/shibari_util_rcode_str.lo src/common/shibari_util_canon_domain.lo src/common/shibari_util_get_prefixlen.lo
+shibari-cache-config: EXTRA_LIBS := -ls6dns -lskarnet
+shibari-cache-config: src/config/shibari-cache-config.o src/config/util.o src/config/node.o src/config/repo.o src/config/conftree.o src/config/defaults.o src/config/lexparse.o
 ifeq ($(strip $(STATIC_LIBS_ARE_PIC)),)
 libshibari-server.a.xyzzy: src/server/shibari_packet_init.o src/server/shibari_packet_begin.o src/server/shibari_packet_end.o src/server/shibari_packet_add_rr.o src/server/shibari_tdb_entry_parse.o src/server/shibari_tdb_extract_domain.o src/server/shibari_tdb_find_authority.o src/server/shibari_tdb_read_entry.o src/server/shibari_packet_add_glue.o src/server/shibari_packet_assert_authority.o src/server/shibari_packet_tdb_answer_query.o src/server/shibari_packet_tdb_axfr.o
 else

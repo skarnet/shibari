@@ -1,2 +1,3 @@
 shibari-server-tcp	0755
 shibari-server-udp	0755
+shibari-cache-config	0755
