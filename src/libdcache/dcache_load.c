@@ -4,7 +4,6 @@
 #include <string.h>
 #include <errno.h>
 
-#include <skalibs/posixishard.h>
 #include <skalibs/uint16.h>
 #include <skalibs/uint64.h>
 #include <skalibs/buffer.h>
@@ -12,6 +11,8 @@
 #include <skalibs/djbunix.h>
 
 #include <shibari/dcache.h>
+
+#include <skalibs/posixishard.h>
 
 static inline int dcache_load_node (dcache_t *z, uint64_t max, buffer *b)
 {

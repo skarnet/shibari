@@ -38,6 +38,7 @@ struct namevalue_s
 enum directivevalue_e
 {
   T_VERBOSITY,
+  T_MAXTCP,
   T_LISTEN,
   T_SERVER,
   T_FORWARD,
@@ -85,6 +86,20 @@ static inline void parse_verbosity (char const *s, size_t const *word, size_t n,
     strerr_dief7x(1, " argument to directive ", "verbosity", " must be an integer ", " in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
   uint32_pack_big(pack, v) ;
   add_unique("G:logv", pack, 4, md) ;
+}
+
+static inline void parse_maxtcp (char const *s, size_t const *word, size_t n, mdt const *md)
+{
+  uint32_t max ;
+  char pack[4] ;
+  if (n != 1)
+    strerr_dief8x(1, "too ", n ? "many" : "few", " arguments to directive ", "maxtcp", " in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
+  if (!uint320_scan(s + word[0], &max))
+    strerr_dief7x(1, " argument to directive ", "maxtcp", " must be an integer ", " in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
+  if (max > 4000)
+    strerr_dief7x(1, " argument to directive ", "maxtcp", " must be 4000 or less ", " in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
+  uint32_pack_big(pack, max) ;
+  add_unique("G:maxtcp", pack, 4, md) ;
 }
 
 static inline void parse_listen (char const *s, size_t const *word, size_t n, mdt const *md)
@@ -140,8 +155,10 @@ static inline void process_line (char const *s, size_t const *word, size_t n, md
 {
   static struct namevalue_s const directives[] =
   {
+    { .name = "accept", .value = T_ACCEPT },
     { .name = "forward", .value = T_FORWARD },
     { .name = "listen", .value = T_LISTEN },
+    { .name = "maxtcp", .value = T_MAXTCP },
     { .name = "server", .value = T_SERVER },
     { .name = "verbosity", .value = T_VERBOSITY },
   } ;
@@ -157,8 +174,14 @@ static inline void process_line (char const *s, size_t const *word, size_t n, md
     case T_VERBOSITY :
       parse_verbosity(s, word, n, md) ;
       break ;
+    case T_MAXTCP :
+      parse_maxtcp(s, word, n, md) ;
+      break ;
     case T_LISTEN :
       parse_listen(s, word, n, md) ;
+      break ;
+    case T_ACCEPT :
+      parse_accept(s, word, n, md) ;
       break ;
     case T_SERVER :
       parse_server(s, word, n, md, 0) ;
@@ -227,4 +250,5 @@ void conf_lexparse (buffer *b, char const *ifile)
   }
   genalloc_free(size_t, &words) ;
   stralloc_free(&sa) ;
+  default_accept() ;
 }

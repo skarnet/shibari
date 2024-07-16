@@ -1,7 +1,7 @@
 /* ISC license. */
 
-#ifndef SHIBARI_DCACHE_INTERNAL_H
-#define SHIBARI_DCACHE_INTERNAL_H
+#ifndef DCACHE_INTERNAL_H
+#define DCACHE_INTERNAL_H
 
 #include <stdint.h>
 

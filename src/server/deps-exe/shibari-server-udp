@@ -4,3 +4,4 @@ ${LIBSHIBARI_COMMON}
 -ls6
 -lskarnet
 ${SOCKET_LIB}
+${SYSCLOCK_LIB}

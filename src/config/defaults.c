@@ -18,6 +18,7 @@ struct defaults_s
 static struct defaults_s const defaults[] =
 {
   RECU32("G:logv", 1),
+  RECU32("G:maxtcp", 256),
   REC("G:listen4", "\0\0\0\0\0\35", 6),
   REC("G:listen6", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\35", 18),
 
