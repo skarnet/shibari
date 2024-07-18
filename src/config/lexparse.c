@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <skalibs/uint16.h>
 #include <skalibs/uint32.h>
+#include <skalibs/fmtscan.h>
 #include <skalibs/bitarray.h>
 #include <skalibs/buffer.h>
 #include <skalibs/strerr.h>
@@ -52,7 +54,10 @@ static void conftree_checkunique (char const *key, mdt const *md)
   {
     char fmt[UINT32_FMT] ;
     fmt[uint32_fmt(fmt, node->line)] = 0 ;
-    strerr_diefn(1, 12, "duplicate ", "key ", key, " in file ", g.storage.s + md->filepos, " line ", md->linefmt, ", previously defined", " in file ", g.storage.s + node->filepos, " line ", fmt) ;
+    if (key[0] == 'A')
+      strerr_diefn(1, 11, "duplicate ", "key in file ", g.storage.s + md->filepos, " line ", md->linefmt, ", previously defined", " in file ", g.storage.s + node->filepos, " line ", fmt) ;
+    else
+      strerr_diefn(1, 12, "duplicate ", "key ", key, " in file ", g.storage.s + md->filepos, " line ", md->linefmt, ", previously defined", " in file ", g.storage.s + node->filepos, " line ", fmt) ;
   }
 }
 
@@ -124,6 +129,29 @@ static inline void parse_listen (char const *s, size_t const *word, size_t n, md
 
 static inline void parse_accept (char const *s, size_t const *word, size_t n, mdt const *md)
 {
+  char key[21] = "A?:" ;
+  if (!n)
+    strerr_dief6x(1, "too few arguments to directive ", "accept", " in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
+  for (size_t i = 0 ; i < n ; i++)
+  {
+    uint16_t mask ;
+    uint8_t ipz = 16 ;
+    size_t n = ip6_scan(s + word[i], key + 4) ;
+    if (!n)
+    {
+       ipz = 4 ;
+       n = ip4_scan(s + word[i], key + 4) ;
+       if (!n) goto err ;
+    }
+    if (s[word[i] + n] != '/' && s[word[i] + n] != '_') goto err ;
+    if (!uint160_scan(s + word[i] + n + 1, &mask) || mask > (ipz << 3)) goto err ;
+    key[1] = ipz == 16 ? '6' : '4' ;
+    key[3] = (uint8_t)mask ;
+    if (ipz == 16) ip6_netmask(key + 4, mask) ; else ip4_netmask(key + 4, mask) ;
+    add_unique(key, "", 0, md) ;
+  }
+ err:
+  strerr_dief6x(1, "arguments to directive ", "accept", " must be IP/mask in file ", g.storage.s + md->filepos, " line ", md->linefmt) ;
 }
 
 static inline void parse_server (char const *s, size_t const *word, size_t n, mdt const *md, int forward)

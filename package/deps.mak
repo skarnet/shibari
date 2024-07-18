@@ -8,6 +8,7 @@ src/include/shibari/packet.h: src/include/shibari/tdb.h
 src/include/shibari/server.h: src/include/shibari/log.h src/include/shibari/packet.h src/include/shibari/tdb.h
 src/include/shibari/shibari.h: src/include/shibari/cache.h src/include/shibari/client.h src/include/shibari/common.h src/include/shibari/server.h
 src/libdcache/dcache-internal.h: src/include/shibari/dcache.h
+src/cache/access.o src/cache/access.lo: src/cache/access.c src/cache/shibari-cache-internal.h
 src/cache/cache.o src/cache/cache.lo: src/cache/cache.c src/cache/shibari-cache-internal.h src/include/shibari/dcache.h
 src/cache/conf.o src/cache/conf.lo: src/cache/conf.c src/cache/shibari-cache-internal.h
 src/cache/shibari-cache.o src/cache/shibari-cache.lo: src/cache/shibari-cache.c src/cache/shibari-cache-internal.h src/include/shibari/cache.h src/include/shibari/common.h src/include/shibari/config.h
