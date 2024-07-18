@@ -40,6 +40,7 @@ enum directivevalue_e
   T_VERBOSITY,
   T_MAXTCP,
   T_LISTEN,
+  T_ACCEPT,
   T_SERVER,
   T_FORWARD,
 } ;
@@ -119,6 +120,10 @@ static inline void parse_listen (char const *s, size_t const *word, size_t n, md
     add_unique("G:listen4", ip4, n4 << 2, md) ;
     add_unique("G:listen6", ip6, n6 << 4, md) ;
   }
+}
+
+static inline void parse_accept (char const *s, size_t const *word, size_t n, mdt const *md)
+{
 }
 
 static inline void parse_server (char const *s, size_t const *word, size_t n, mdt const *md, int forward)
@@ -250,5 +255,4 @@ void conf_lexparse (buffer *b, char const *ifile)
   }
   genalloc_free(size_t, &words) ;
   stralloc_free(&sa) ;
-  default_accept() ;
 }
