@@ -1,6 +1,6 @@
 /* ISC license. */
 
-#include <stddef.h>
+#include <stdint.h>
 
 #include "shibari-cache-config-internal.h"
 
@@ -8,19 +8,19 @@ struct defaults_s
 {
   char const *key ;
   char const *value ;
-  size_t vlen ;
+  uint32_t vlen ;
 } ;
 
 #define REC(k, v, n) { .key = (k), .value = (v), .vlen = (n) }
-#define RECS(k, v) REC(k, v, sizeof(v))
+#define RECS(k, v) REC(k, (v), sizeof(v))
 #define RECU32(k, u) { .key = (k), .value = (char const [4]){ (u) >> 24 & 0xffu, (u) >> 16 & 0xffu, (u) >> 8 & 0xffu, (u) & 0xffu }, .vlen = 4 }
 
 static struct defaults_s const defaults[] =
 {
   RECU32("G:logv", 1),
   RECU32("G:maxtcp", 256),
-  REC("G:listen4", "\0\0\0\0\0\35", 6),
-  REC("G:listen6", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\35", 18),
+  REC("G:listen4", "\177\0\0\1", 4),
+  REC("G:listen6", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1", 16),
 
   REC("R4:",
    "\0\306\51\0\4"
@@ -58,14 +58,25 @@ static struct defaults_s const defaults[] =
 
 void conf_defaults (void)
 {
-  for (struct defaults_s const *p = defaults ; p->key ; p++)
   {
-    if (!conftree_search(p->key))
-    {
-      node node ;
-      confnode_start(&node, p->key, 0, 0) ;
-      confnode_add(&node, p->value, p->vlen) ;
-      conftree_add(&node) ;
-    }
+    size_t n = genalloc_len(node, &conf.list) ;
+    for (size_t i = 0 ; i < n ; i++)
+      if (conf.storage.s[genalloc_s(node, &conf.list)[i].key.left] == 'A') goto cont ;
   }
+
+  {
+    node *nod = repo_searchs(&conf, "G:listen4") ;
+    if (!nod) nod = repo_searchs(&conf, "G:listen6") ;
+    if (!nod)
+    {
+      repo_add_new(&conf, "A4:\b\177\0\0\1", 8, "", 0, 0, 0) ;
+      repo_add_new(&conf, "A6:\200\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1", 20, "", 0, 0, 0) ;
+    }
+    else strerr_warnw1x("listen directives without accept directives") ;
+  }
+
+ cont:
+  for (struct defaults_s const *p = defaults ; p->key ; p++)
+    if (!repo_searchs(&conf, p->key))
+      repo_adds_new(&conf, p->key, p->value, p->vlen, 0, 0) ;
 }

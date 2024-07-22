@@ -20,7 +20,7 @@
 #define USAGE "shibari-cache-config [ -i textfile ] [ -o cdbfile ] [ -m mode ]"
 #define dieusage() strerr_dieusage(100, USAGE)
 
-struct global_s g = GLOBAL_ZERO ;
+repo conf = REPO_ZERO ;
 
 static inline void conf_output (char const *ofile, unsigned int omode)
 {
@@ -37,7 +37,7 @@ static inline void conf_output (char const *ofile, unsigned int omode)
     unlink_void(otmp) ;
     strerr_diefu2sys(111, "cdmake_start ", otmp) ;
   }
-  if (!conftree_write(&cm))
+  if (!repo_write(&cm, &conf))
   {
     unlink_void(otmp) ;
     strerr_diefu2sys(111, "write config tree into ", otmp) ;
@@ -87,6 +87,8 @@ int main (int argc, char const *const *argv, char const *const *envp)
     }
     argc -= l.ind ; argv += l.ind ;
   }
+
+  repo_init(&conf) ;
 
   {
     int fdr = openc_readb(ifile) ;

@@ -1,8 +1,6 @@
-util.o
-node.o
 repo.o
-conftree.o
 defaults.o
 lexparse.o
+util.o
 -ls6dns
 -lskarnet
