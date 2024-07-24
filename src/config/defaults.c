@@ -14,13 +14,18 @@ struct defaults_s
 #define REC(k, v, n) { .key = (k), .value = (v), .vlen = (n) }
 #define RECS(k, v) REC(k, (v), sizeof(v))
 #define RECU32(k, u) { .key = (k), .value = (char const [4]){ (u) >> 24 & 0xffu, (u) >> 16 & 0xffu, (u) >> 8 & 0xffu, (u) & 0xffu }, .vlen = 4 }
+#define RECU64(k, u) { .key = (k), .value = (char const [8]){ (u) >> 56 & 0xffu, (u) >> 48 & 0xffu, (u) >> 40 & 0xffu, (u) >> 32 & 0xffu, (u) >> 24 & 0xffu, (u) >> 16 & 0xffu, (u) >> 8 & 0xffu, (u) & 0xffu }, .vlen = 8 }
 
 static struct defaults_s const defaults[] =
 {
   RECU32("G:logv", 1),
-  RECU32("G:maxtcp", 256),
   REC("G:listen4", "\177\0\0\1", 4),
   REC("G:listen6", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1", 16),
+  RECU32("G:maxtcp", 256),
+  RECU32("G:maxqueries", 1024),
+  RECU64("G:cachesize", 1048576),
+  RECU32("G:rtimeout", 0),
+  RECU32("G:wtimeout", 0),
 
   REC("R4:",
    "\0\306\51\0\4"

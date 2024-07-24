@@ -35,20 +35,21 @@ struct dcache_s
   avltree by_key ;
   avltree by_entry ;
   avltree by_expire ;
+  uint64_t max ;
   uint64_t size ;
   uint64_t motion ;
 } ;
-#define DCACHE_ZERO { .storage = GENSETDYN_ZERO, .by_key = AVLTREE_ZERO, .by_entry = AVLTREE_ZERO, .by_expire = AVLTREE_ZERO, .size = 0, .motion = 0 }
+#define DCACHE_ZERO { .storage = GENSETDYN_ZERO, .by_key = AVLTREE_ZERO, .by_entry = AVLTREE_ZERO, .by_expire = AVLTREE_ZERO, .max = 0, .size = 0, .motion = 0 }
 
 extern void dcache_init (dcache_t *, uint64_t) ;
 extern dcache_node_t *dcache_search (dcache_t *, char const *, uint16_t) ;
-extern int dcache_add (dcache_t *, uint64_t, char const *, uint16_t, char const *, uint16_t, tain const *, tain const *) ;
-#define dcache_add_g(d, max, key, keylen, data, datalen, expire) dcache_add(d, max, key, keylen, data, datalen, (expire), &STAMP)
+extern int dcache_add (dcache_t *, char const *, uint16_t, char const *, uint16_t, tain const *, tain const *) ;
+#define dcache_add_g(d, key, keylen, data, datalen, expire) dcache_add(d, key, keylen, data, datalen, (expire), &STAMP)
 extern void dcache_clean_expired (dcache_t *, tain const *) ;
 #define dcache_clean_expired_g(d) dcache_clean_expired((d), &STAMP)
 extern void dcache_free (dcache_t *) ;
 
 extern int dcache_save (dcache_t const *, char const *) ;
-extern int dcache_load (dcache_t *, uint64_t, char const *) ;
+extern int dcache_load (dcache_t *, char const *) ;
 
 #endif

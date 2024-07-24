@@ -14,7 +14,7 @@
 
 #include <skalibs/posixishard.h>
 
-static inline int dcache_load_node (dcache_t *z, uint64_t max, buffer *b)
+static inline int dcache_load_node (dcache_t *z, buffer *b)
 {
   tain entry = { .nano = 0 } ;
   tain expire = { .nano = 0 } ;
@@ -35,12 +35,12 @@ static inline int dcache_load_node (dcache_t *z, uint64_t max, buffer *b)
     if (!r) return (errno = EPIPE, -1) ;
     if (r < len) return -1 ;
     if (blob[len]) return (errno = EPROTO, -1) ;
-    if (!dcache_add(z, max, blob, keylen, blob + keylen, datalen, &expire, &entry)) return -1 ;
+    if (!dcache_add(z, blob, keylen, blob + keylen, datalen, &expire, &entry)) return -1 ;
   }
   return 1 ;
 }
 
-static inline int dcache_load_from_buffer (dcache_t *z, uint64_t max, buffer *b)
+static inline int dcache_load_from_buffer (dcache_t *z, buffer *b)
 {
   {
     char banner[sizeof(DCACHE_MAGIC) - 1] ;
@@ -55,7 +55,7 @@ static inline int dcache_load_from_buffer (dcache_t *z, uint64_t max, buffer *b)
   }
   for (;;)
   {
-    int r = dcache_load_node(z, max, b) ;
+    int r = dcache_load_node(z, b) ;
     if (r < 0) return 0 ;
     if (!r) break ;
   }
@@ -64,14 +64,14 @@ static inline int dcache_load_from_buffer (dcache_t *z, uint64_t max, buffer *b)
 
 #define N 8192
 
-int dcache_load (dcache_t *z, uint64_t max, char const *file)
+int dcache_load (dcache_t *z, char const *file)
 {
   char buf[N] ;
   buffer b ;
   int fd = open_readb(file) ;
   if (fd == -1) return 0 ;
   buffer_init(&b, &buffer_read, fd, buf, N) ;
-  if (!dcache_load_from_buffer(z, max, &b)) goto err ;
+  if (!dcache_load_from_buffer(z, &b)) goto err ;
   fd_close(fd) ;
   return 1 ;
 

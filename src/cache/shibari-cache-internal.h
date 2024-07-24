@@ -5,7 +5,9 @@
 
 #include <stdint.h>
 
+#include <skalibs/uint64.h>
 #include <skalibs/cdb.h>
+#include <skalibs/tai.h>
 #include <skalibs/stralloc.h>
 #include <skalibs/genalloc.h>
 #include <skalibs/bufalloc.h>
@@ -14,11 +16,12 @@
 
 #include <s6-dns/s6dns-engine.h>
 
-#define MAXXED 1000
 
  /* cache */
 
-extern dcache_t cache ;
+extern void cache_init (uint64_t) ;
+extern void cache_dump (void) ;
+extern void cache_load (void) ;
 
 
  /* conf */
@@ -26,6 +29,8 @@ extern dcache_t cache ;
 extern int conf_getb (cdb const *, char const *, size_t, cdb_data *) ;
 extern int conf_get (cdb const *, char const *, cdb_data *) ;
 extern int conf_get_uint32 (cdb const *, char const *, uint32_t *) ;
+extern int conf_get_uint64 (cdb const *, char const *, uint64_t *) ;
+extern char const *conf_get_string (cdb const *, char const *) ;
 
 
  /* tcpconnection */
@@ -36,11 +41,18 @@ struct tcpconnection_s
   bufalloc out ;
   stralloc in ;
   uint32_t instate ;
+  tain rdeadline ;
+  tain wdeadline ;
+  uint32_t prev ;
+  uint32_t next ;
+  uint32_t xindex ;
 } ;
-#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0 }
+#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0, .rdeadline = TAIN_INFINITE, .wdeadline = TAIN_INFINITE, .prev = 0, .next = 0. .xindex = UINT32_MAX }
+#define ntcp (genset_n(&g->tcpconnections) - 1)
+#define TCPCONNECTION(i) genset_p(tcpconnection, &g->tcpconnections, (i))
+#define tcpstart (TCPCONNECTION(g->tcpsentinel)->next)
 
-extern genset *tcpconn ;  /* tcpconnection */
-#define ntcp (genset_n(tcpconn))
+extern void tcpconnection_drop (tcpconnection *) ;
 
 
  /* udpqueue */
@@ -69,8 +81,12 @@ struct udpqueue_s
   int fd ;
   stralloc storage ;
   genalloc messages ; /* udp[46]msg */
+  tain deadline ;
+  uint32_t xindex ;
 } ;
-#define UDPQUEUE_ZERO { .fd = -1, .storage = STRALLOC_ZERO, .messages = GENALLOC_ZERO }
+#define UDPQUEUE_ZERO { .fd = -1, .storage = STRALLOC_ZERO, .messages = GENALLOC_ZERO, .deadline = TAIN_INFINITE, .xindex = UINT32_MAX }
+
+extern void udpqueue_drop (udpqueue *) ;
 
 extern int udpqueue_add4 (udpqueue *, char const *, uint16_t) ;
 extern int udpqueue_flush4 (udpqueue *) ;
@@ -81,17 +97,56 @@ extern int udpqueue_flush6 (udpqueue *) ;
 #endif
 
 
- /* main */
+ /* query */
 
 typedef struct query_s query, *query_ref ;
 struct query_s
 {
   s6dns_engine_t dt ;
-  size_t origin ;
+  uint32_t origin ;
+  uint32_t prev ;
+  uint32_t next ;
+  uint32_t xindex ;
+  char ip[16] ;
+  uint16_t port ;
 } ;
+#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .origin = 0, .prev = 0, .next = 0, .xindex = UINT32_MAX, .ip = { 0 }, .port = 0 }
+#define nq (genset_n(&g->queries) - 1)
+#define QUERY(i) genset_p(query, &g->queries, (i))
+#define qstart (QUERY(g->qsentinel)->next)
 
-extern uint32_t verbosity ;
-extern cdb confdb ;
-extern size_t n4, n6 ;
+extern void query_fail (query *) ;
+extern void query_success (query *) ;
+extern void query_new (uint32_t, char const *, uint8_t, uint16_t, char const *, uint16_t) ;
+
+
+ /* main */
+
+typedef struct global_s global, *global_ref ;
+struct global_s
+{
+  cdb confdb ;
+  char const *dumpfile ;
+  uint32_t verbosity ;
+  tain rtto ;
+  tain wtto ;
+  genset tcpconnections ;  /* tcpconnection */
+  uint32_t tcpsentinel ;
+  genset queries ;  /* query */
+  uint32_t qsentinel ;
+} ;
+#define GLOBAL_ZERO { \
+  .confdb = CDB_ZERO, \
+  .dumpfile = 0, \
+  .verbosity = 1, \
+  .rtto = TAIN_INFINITE, \
+  .wtto = TAIN_INFINITE, \
+  .tcpconnections = GENSET_ZERO, \
+  .tcpsentinel = 0, \
+  .queries = GENSET_ZERO, \
+  .qsentinel = 0, \
+}
+
+extern global *g ;
 
 #endif

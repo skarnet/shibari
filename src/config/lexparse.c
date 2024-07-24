@@ -29,7 +29,12 @@ struct namevalue_s
 enum directivevalue_e
 {
   T_VERBOSITY,
+  T_CACHESIZE,
   T_MAXTCP,
+  T_MAXQUERIES,
+  T_RTIMEOUT,
+  T_WTIMEOUT,
+  T_CACHEFILE,
   T_LISTEN,
   T_ACCEPT,
   T_SERVER,
@@ -101,25 +106,30 @@ static int ipcmp (void const *a, void const *b, size_t n)
 }
 
 
-static inline void parse_verbosity (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line)
+static void parse_u32 (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line, char const *directive, char const *key)
 {
-  uint32_t v ;
+  uint32_t u ;
   char pack[4] ;
-  if (n != 1) dieparse(ifile, line, "verbosity", n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
-  if (!uint320_scan(s + word[0], &v)) dieparse(ifile, line, "verbosity", "argument must be an integer", 0, 0, 0) ;
-  uint32_pack_big(pack, v) ;
-  adds_unique(ifile, line, "verbosity", "G:logv", pack, 4) ;
+  if (n != 1) dieparse(ifile, line, directive, n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
+  if (!uint320_scan(s + word[0], &u)) dieparse(ifile, line, directive, "argument must be an integer", 0, 0, 0) ;
+  uint32_pack_big(pack, u) ;
+  adds_unique(ifile, line, directive, key, pack, 4) ;
 }
 
-static inline void parse_maxtcp (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line)
+static void parse_u64 (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line, char const *directive, char const *key)
 {
-  uint32_t max ;
-  char pack[4] ;
-  if (n != 1) dieparse(ifile, line, "maxtcp", n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
-  if (!uint320_scan(s + word[0], &max)) dieparse(ifile, line, "maxtcp", "argument must be an integer", 0, 0, 0) ;
-  if (max > 4000) dieparse(ifile, line, "maxtcp", "argument must be 4000 or less", 0, 0, 0) ;
-  uint32_pack_big(pack, max) ;
-  adds_unique(ifile, line, "maxtcp", "G:maxtcp", pack, 4) ;
+  uint64_t u ;
+  char pack[8] ;
+  if (n != 1) dieparse(ifile, line, directive, n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
+  if (!uint640_scan(s + word[0], &u)) dieparse(ifile, line, directive, "argument must be an integer", 0, 0, 0) ;
+  uint64_pack_big(pack, u) ;
+  adds_unique(ifile, line, directive, key, pack, 8) ;
+}
+
+static void parse_string (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line, char const *directive, char const *key)
+{
+  if (n != 1) dieparse(ifile, line, directive, n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
+  adds_unique(ifile, line, directive, key, s + word[0], strlen(s + word[0]) + 1) ;
 }
 
 static inline void parse_listen (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line)
@@ -195,11 +205,16 @@ static inline void process_line (char const *s, size_t const *word, size_t n, ch
   static struct namevalue_s const directives[] =
   {
     { .name = "accept", .value = T_ACCEPT },
+    { .name = "cache_file", .value = T_CACHEFILE },
+    { .name = "cache_size", .value = T_CACHESIZE },
     { .name = "forward", .value = T_FORWARD },
     { .name = "listen", .value = T_LISTEN },
+    { .name = "maxqueries", .value = T_MAXQUERIES },
     { .name = "maxtcp", .value = T_MAXTCP },
+    { .name = "read_timeout", .value = T_RTIMEOUT },
     { .name = "server", .value = T_SERVER },
     { .name = "verbosity", .value = T_VERBOSITY },
+    { .name = "write_timeout", .value = T_WTIMEOUT },
   } ;
   struct namevalue_s const *directive ;
   char const *word0 ;
@@ -210,10 +225,25 @@ static inline void process_line (char const *s, size_t const *word, size_t n, ch
   switch (directive->value)
   {
     case T_VERBOSITY :
-      parse_verbosity(s, word, n, ifile, line) ;
+      parse_u32(s, word, n, ifile, line, "verbosity", "G:logv") ;
+      break ;
+    case T_CACHESIZE :
+      parse_u64(s, word, n, ifile, line, "cache_size", "G:cachesize") ;
       break ;
     case T_MAXTCP :
-      parse_maxtcp(s, word, n, ifile, line) ;
+      parse_u32(s, word, n, ifile, line, "maxtcp", "G:maxtcp") ;
+      break ;
+    case T_MAXQUERIES :
+      parse_u32(s, word, n, ifile, line, "maxqueries", "G:maxqueries") ;
+      break ;
+    case T_RTIMEOUT :
+      parse_u32(s, word, n, ifile, line, "read_timeout", "G:rtimeout") ;
+      break ;
+    case T_WTIMEOUT :
+      parse_u32(s, word, n, ifile, line, "write_timeout", "G:wtimeout") ;
+      break ;
+    case T_CACHEFILE :
+      parse_string(s, word, n, ifile, line, "cache_file", "G:cachefile") ;
       break ;
     case T_LISTEN :
       parse_listen(s, word, n, ifile, line) ;

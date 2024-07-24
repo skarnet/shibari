@@ -50,6 +50,7 @@ void dcache_init (dcache_t *z, uint64_t max)
   avltree_init(&z->by_key, max >> 9, 3, 8, &key_dtok, &key_cmp, &z->storage) ;
   avltree_init(&z->by_entry, max >> 9, 3, 8, &entry_dtok, &tain_cmp, &z->storage) ;
   avltree_init(&z->by_expire, max >> 9, 3, 8, &expire_dtok, &tain_cmp, &z->storage) ;
+  z->max = max ;
   z->size = 0 ;
   z->motion = 0 ;
 }

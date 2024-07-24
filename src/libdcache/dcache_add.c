@@ -75,11 +75,11 @@ static inline int dcache_add_unbounded (dcache_t *z, char const *key, uint16_t k
   return 1 ;
 }
 
-int dcache_add (dcache_t *z, uint64_t max, char const *key, uint16_t keylen, char const *data, uint16_t datalen, tain const *expire, tain const *stamp)
+int dcache_add (dcache_t *z, char const *key, uint16_t keylen, char const *data, uint16_t datalen, tain const *expire, tain const *stamp)
 {
   uint64_t size = DCACHE_NODE_OVERHEAD + keylen + datalen ;
-  if (size > max) return (errno = EINVAL, 0) ;
-  if (z->size > max - size) dcache_clean_expired(z, stamp) ;
-  if (z->size > max - size) dcache_gc_by_entry(z, max - size) ;
+  if (size > z->max) return (errno = EINVAL, 0) ;
+  if (z->size > z->max - size) dcache_clean_expired(z, stamp) ;
+  if (z->size > z->max - size) dcache_gc_by_entry(z, z->max - size) ;
   return dcache_add_unbounded(z, key, keylen, data, datalen, expire, stamp) ;
 }
