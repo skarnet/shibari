@@ -15,7 +15,10 @@
 #include <skalibs/genset.h>
 #include <skalibs/ip46.h>
 
+#include <s6-dns/s6dns-domain.h>
 #include <s6-dns/s6dns-engine.h>
+
+#include <shibari/dcache.h>
 
 
  /* cache */
@@ -23,6 +26,7 @@
 extern void cache_init (uint64_t) ;
 extern void cache_dump (void) ;
 extern void cache_load (void) ;
+extern int cache_search (s6dns_domain_t const *, uint16_t, dcache_key_t *) ;
 
 
  /* clientaccess */
@@ -32,6 +36,7 @@ extern int clientaccess_ip4 (char const *) ;
 extern int clientaccess_ip6 (char const *) ;
 #endif
 
+
  /* conf */
 
 extern int conf_getb (char const *, size_t, cdb_data *) ;
@@ -40,6 +45,11 @@ extern int conf_get_uint16 (char const *, uint16_t *) ;
 extern int conf_get_uint32 (char const *, uint32_t *) ;
 extern int conf_get_uint64 (char const *, uint64_t *) ;
 extern char const *conf_get_string (char const *) ;
+
+
+ /* dns */
+
+extern int dns_newquery (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
 
 
  /* log */

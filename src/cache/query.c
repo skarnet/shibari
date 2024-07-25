@@ -38,7 +38,7 @@ uint16_t query_succeed (uint16_t id)
   return query_delete(q) ;
 }
 
-int query_new (uint8_t source, uint16_t i, char const *ip, uint16_t port, char const *s, uint16_t len)
+int query_new (uint8_t source, uint16_t i, char const *ip, uint16_t port, char const *buf, uint16_t len)
 {
   return 1 ;
 }

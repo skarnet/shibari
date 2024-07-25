@@ -458,7 +458,7 @@ int main (int argc, char const *const *argv)
               if (!len) break ;
               if (len < 12 || len > 512) continue ;
               if (!clientaccess_ip4(ip)) continue ;
-              if (!query_new(0, i, ip, port, buf, len))
+              if (!dns_newquery(0, i, ip, port, buf, len))
               {
                 if (g->verbosity)
                 {
@@ -494,7 +494,7 @@ int main (int argc, char const *const *argv)
               if (!len) break ;
               if (len < 12 || len > 512) continue ;
               if (!clientaccess_ip6(ip)) continue ;
-              if (!query_new(1, i, ip, port, buf, len))
+              if (!dns_newquery(1, i, ip, port, buf, len))
               {
                 if (g->verbosity)
                 {
@@ -522,7 +522,7 @@ int main (int argc, char const *const *argv)
               if (l == -1) { i = tcpconnection_delete(p) ; break ; }
               if (!l) break ;
               if (p->in.len < 12 || p->in.len > 65536) { i = tcpconnection_delete(p) ; break ; }
-              if (!query_new(2, i, 0, 0, p->in.s, p->in.len))
+              if (!dns_newquery(2, i, 0, 0, p->in.s, p->in.len))
               {
                 if (g->verbosity)
                 {
