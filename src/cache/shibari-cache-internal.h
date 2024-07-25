@@ -42,6 +42,15 @@ extern int conf_get_uint64 (char const *, uint64_t *) ;
 extern char const *conf_get_string (char const *) ;
 
 
+ /* log */
+
+extern void log_newtcp4 (char const *, uint16_t) ;
+#ifdef SKALIBS_IPV6_ENABLED
+extern void log_newtcp6 (char const *, uint16_t) ;
+extern void log_tcptimeout (uint16_t) ;
+#endif
+
+
  /* query */
 
 typedef struct query_s query, *query_ref ;
@@ -51,18 +60,19 @@ struct query_s
   uint16_t prev ;
   uint16_t next ;
   uint16_t xindex ;
-  uint16_t source ;
   uint16_t i ;
   uint16_t port ;
+  uint8_t source ;
   char ip[SKALIBS_IP_SIZE] ;
 } ;
-#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX, .source = 0, .i = 0, .port = 0, .ip = { 0 } }
+#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX, .i = 0, .port = 0, .source = 0, .ip = { 0 } }
 #define nq (genset_n(&g->queries) - 1)
 #define QUERY(i) genset_p(query, &g->queries, (i))
 #define qstart (QUERY(g->qsentinel)->next)
 
-extern void query_fail (query *) ;
-extern void query_success (query *) ;
+extern uint16_t query_abort (uint16_t) ;
+extern uint16_t query_fail (uint16_t) ;
+extern uint16_t query_succeed (uint16_t) ;
 extern int query_new (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
 
 
@@ -76,18 +86,20 @@ struct tcpconnection_s
   uint32_t instate ;
   tain rdeadline ;
   tain wdeadline ;
+  genalloc queries ;  /* uint16_t */
   uint16_t prev ;
   uint16_t next ;
   uint16_t xindex ;
 } ;
-#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0, .rdeadline = TAIN_INFINITE, .wdeadline = TAIN_INFINITE, .prev = 0, .next = 0, .xindex = UINT16_MAX }
+#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0, .rdeadline = TAIN_INFINITE, .wdeadline = TAIN_INFINITE, .queries = GENALLOC_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX }
 #define ntcp (genset_n(&g->tcpconnections) - 1)
 #define TCPCONNECTION(i) genset_p(tcpconnection, &g->tcpconnections, (i))
 #define tcpstart (TCPCONNECTION(g->tcpsentinel)->next)
 
-extern void tcpconnection_drop (tcpconnection *) ;
+extern void tcpconnection_removequery (tcpconnection *, uint16_t) ;
+extern uint16_t tcpconnection_delete (tcpconnection *) ;
 extern int tcpconnection_flush (tcpconnection *) ;
-extern int tcpconnection_new (uint8_t, uint16_t, int, char const *, uint16_t) ;
+extern void tcpconnection_new (int) ;
 
 
  /* udpqueue */

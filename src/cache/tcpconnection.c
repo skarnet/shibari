@@ -1,17 +1,66 @@
 /* ISC license. */
 
+#include <stdint.h>
+#include <errno.h>
+
+#include <skalibs/allreadwrite.h>
+#include <skalibs/error.h>
+#include <skalibs/tai.h>
+#include <skalibs/djbunix.h>
+#include <skalibs/bufalloc.h>
+#include <skalibs/genalloc.h>
+
 #include "shibari-cache-internal.h"
 
-void tcpconnection_drop (tcpconnection *tc)
+void tcpconnection_removequery (tcpconnection *p, uint16_t id)
 {
+  uint16_t *tab = genalloc_s(uint16_t, &p->queries) ;
+  uint16_t n = genalloc_len(uint16_t, &p->queries) ;
+  uint16_t i = 0 ;
+  for (; i < n ; i++) if (id == tab[i]) break ;
+  if (i >= n) return ;
+  tab[i] = tab[--n] ;
+  genalloc_setlen(uint16_t, &p->queries, n) ;
 }
 
-int tcpconnection_flush (tcpconnection *tc)
+uint16_t tcpconnection_delete (tcpconnection *p)
 {
-  return 1 ;
+  uint16_t newi = p->prev ;
+  p->out.x.len = 0 ;
+  p->in.len = 0 ;
+  p->instate = 0 ;
+  fd_close(p->out.fd) ;
+  for (uint16_t i = 0 ; i < genalloc_len(uint16_t, &p->queries) ; i++)
+    query_abort(genalloc_s(uint16_t, &p->queries)[i]) ;
+  genalloc_setlen(uint16_t, &p->queries, 0) ;
+  TCPCONNECTION(newi)->next = p->next ;
+  TCPCONNECTION(p->next)->prev = p->prev ;
+  p->xindex = UINT16_MAX ;
+  return newi ;
 }
 
-int tcpconnection_new (uint8_t source, uint16_t i, int fd, char const *ip, uint16_t port)
+int tcpconnection_flush (tcpconnection *p)
 {
-  return 1 ;
+  return bufalloc_flush(&p->out) ? 1 :
+    error_isagain(errno) ? 0 : -1 ;
+}
+
+static void tcpconnection_init (tcpconnection *p, int fd)
+{
+  if (!p->out.op) bufalloc_init(&p->out, &fd_write, fd) ;
+  else { p->out.fd = fd ; p->out.x.len = 0 ; }
+  tain_add_g(&p->rdeadline, &tain_infinite_relative) ;
+  tain_add_g(&p->wdeadline, &tain_infinite_relative) ;
+}
+
+void tcpconnection_new (int fd)
+{
+  uint16_t n = genset_new(&g->tcpconnections) ;
+  tcpconnection *sentinel = TCPCONNECTION(g->tcpsentinel) ;
+  tcpconnection *p = TCPCONNECTION(n) ;
+  tcpconnection_init(p, fd) ;
+  p->prev = g->tcpsentinel ;
+  p->next = sentinel->next ;
+  TCPCONNECTION(sentinel->next)->prev = n ;
+  sentinel->next = n ;
 }

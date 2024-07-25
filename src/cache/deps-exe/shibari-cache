@@ -1,6 +1,7 @@
 cache.o
 clientaccess.o
 conf.o
+log.o
 query.o
 tcpconnection.o
 udpqueue.o

@@ -125,7 +125,7 @@ int main (int argc, char const *const *argv)
   uint16_t n4 = 0, n6 = 0, maxtcp, maxqueries ;
   char const *ip4 = 0, *ip6 = 0 ;
   unsigned int cont = 2 ;
-  int sfd = -1 ;
+  int spfd = -1 ;
   unsigned int notif = 0 ;
   uid_t uid = 0 ;
   gid_t gid = 0 ;
@@ -170,8 +170,8 @@ int main (int argc, char const *const *argv)
   if (!cdb_init(&g->confdb, conffile)) strerr_diefu2sys(111, "open ", conffile) ;
   conf_init(conffile, &n4, &n6, &ip4, &ip6, &maxtcp, &maxqueries) ;
 
-  sfd = selfpipe_init() ;
-  if (sfd == -1) strerr_diefu1sys(111, "create selfpipe") ;
+  spfd = selfpipe_init() ;
+  if (spfd == -1) strerr_diefu1sys(111, "create selfpipe") ;
   if (!sig_altignore(SIGPIPE)) strerr_diefu1sys(111, "ignore SIGPIPE") ;
   {
     sigset_t set ;
@@ -197,18 +197,16 @@ int main (int argc, char const *const *argv)
 
     memset(udpq4, 0, n4 * sizeof(udpqueue)) ;
     memset(udpq6, 0, n6 * sizeof(udpqueue)) ;
+    memset(tcpconnection_storage, 0, (maxtcp + 1) * sizeof(tcpconnection)) ;
+    memset(query_storage, 0, (maxqueries + 1) * sizeof(query)) ;
     GENSET_init(&g->tcpconnections, tcpconnection, tcpconnection_storage, tcpconnection_freelist, maxtcp + 1) ;
     g->tcpsentinel = genset_new(&g->tcpconnections) ;
     GENSET_init(&g->queries, query, query_storage, query_freelist, maxqueries + 1) ;
     g->qsentinel = genset_new(&g->queries) ;
     {
-      static const tcpconnection tcpconnection_zero = TCPCONNECTION_ZERO ;
-      static const query query_zero = QUERY_ZERO ;
       tcpconnection *p = TCPCONNECTION(g->tcpsentinel) ;
       query *q = QUERY(g->qsentinel) ;
-      *p = tcpconnection_zero ;
       p->prev = p->next = g->tcpsentinel ;
-      *q = query_zero ;
       q->prev = q->next = g->qsentinel ;
     }
 
@@ -278,7 +276,7 @@ int main (int argc, char const *const *argv)
 
      /* preparation */
 
-      x[0].fd = sfd ;
+      x[0].fd = spfd ;
       x[0].events = IOPAUSE_READ ;
       if (cont == 1 && tain_less(&lameduckt, &deadline)) deadline = lameduckt ;
 
@@ -355,7 +353,7 @@ int main (int argc, char const *const *argv)
       }
 
 
-     /* exit condition */
+     /* normal exit condition */
 
       if (cont < 2 && !r && !nq) break ;
 
@@ -370,17 +368,17 @@ int main (int argc, char const *const *argv)
 
       if (!r)
       {
-        if (cont == 1 && !tain_future(&lameduckt)) break ;
+        if (cont == 1 && !tain_future(&lameduckt)) break ;  /* too lame */
         for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
-        {
-          query *p = QUERY(i) ;
-          if (s6dns_engine_timeout_g(&p->dt)) { i = p->prev ; query_fail(p) ; }
-        }
+          if (s6dns_engine_timeout_g(&QUERY(i)->dt)) i = query_fail(i) ;
         for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
           if (!tain_future(&p->rdeadline) || !tain_future(&p->wdeadline))
-           tcpconnection_drop(p) ;
+          {
+            log_tcptimeout(i) ;
+            i = tcpconnection_delete(p) ;
+          }
         }
         for (uint16_t i = 0 ; i < n4 ; i++)
           if (!tain_future(&udpq4[i].deadline)) udpqueue_drop(udpq4 + i) ;
@@ -429,22 +427,15 @@ int main (int argc, char const *const *argv)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
           if (p->xindex < UINT16_MAX && x[p->xindex].revents & IOPAUSE_WRITE)
-          {
-            if (tcpconnection_flush(p) == -1)
-            {
-              i = p->prev ;
-              tcpconnection_drop(p) ;
-            }
-          }
+            if (tcpconnection_flush(p) == -1) i = tcpconnection_delete(p) ;
         }
 
         for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
         {
-          query *p = QUERY(i) ;
-          if (p->xindex == UINT16_MAX) continue ;
-          r = s6dns_engine_event_g(&p->dt) ;
-          if (r) i = p->prev ;
-          if (r == -1) query_fail(p) ; else query_success(p) ;
+          if (QUERY(i)->xindex == UINT16_MAX) continue ;
+          r = s6dns_engine_event_g(&QUERY(i)->dt) ;
+          if (r < 0) i = query_fail(i) ;
+          else if (r > 0) i = query_succeed(i) ;
         }
 
         for (uint16_t i = 0 ; i < n4 ; i++)
@@ -524,20 +515,24 @@ int main (int argc, char const *const *argv)
           tcpconnection *p = TCPCONNECTION(i) ;
           if (p->xindex < UINT16_MAX && x[p->xindex].revents & IOPAUSE_READ)
           {
-            int l = sanitize_read(mininetstring_read(bufalloc_fd(&p->out), &p->in, &p->instate)) ;
-            if (l == -1) { i = p->prev ; tcpconnection_drop(p) ; }
-            if (l <= 0) continue ;
-            if (p->in.len < 12 || p->in.len > 65536) { i = p->prev ; tcpconnection_drop(p) ; continue ; }
-            if (!query_new(2, i, 0, 0, p->in.s, p->in.len))
+            uint16_t n = MAXSAME ;
+            while (n-- && nq < maxqueries)
             {
-              if (g->verbosity)
+              int l = sanitize_read(mininetstring_read(bufalloc_fd(&p->out), &p->in, &p->instate)) ;
+              if (l == -1) { i = tcpconnection_delete(p) ; break ; }
+              if (!l) break ;
+              if (p->in.len < 12 || p->in.len > 65536) { i = tcpconnection_delete(p) ; break ; }
+              if (!query_new(2, i, 0, 0, p->in.s, p->in.len))
               {
-                char fmt[UINT16_FMT] ;
-                fmt[uint16_fmt(fmt, i)] = 0 ;
-                strerr_warnwu2sys("process TCP query on connection ", fmt) ;
+                if (g->verbosity)
+                {
+                  char fmt[UINT16_FMT] ;
+                  fmt[uint16_fmt(fmt, i)] = 0 ;
+                  strerr_warnwu2sys("process TCP query on connection ", fmt) ;
+                }
               }
+              p->in.len = 0 ;
             }
-            p->in.len = 0 ;
           }
         }
 
@@ -557,7 +552,8 @@ int main (int argc, char const *const *argv)
                 strerr_diefu1sys(111, "create new TCP connection") ;
               }
               if (!clientaccess_ip4(ip)) { close(fd) ; continue ; }
-              tcpconnection_new(0, i, fd, ip, port) ;
+              tcpconnection_new(fd) ;
+              log_newtcp4(ip, port) ;
             }
           }
         }
@@ -579,7 +575,8 @@ int main (int argc, char const *const *argv)
                 strerr_diefu1sys(111, "create new TCP connection") ;
               }
               if (!clientaccess_ip6(ip)) { close(fd) ; continue ; }
-              tcpconnection_new(1, i, fd, ip, port) ;
+              tcpconnection_new(fd) ;
+              log_newtcp6(ip, port) ;
             }
           }
         }
