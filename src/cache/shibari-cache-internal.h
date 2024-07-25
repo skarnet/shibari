@@ -28,18 +28,18 @@ extern void cache_load (void) ;
  /* clientaccess */
 
 extern int clientaccess_ip4 (char const *) ;
-#if SKALIBS_IPV6_ENABLED
+#ifdef SKALIBS_IPV6_ENABLED
 extern int clientaccess_ip6 (char const *) ;
 #endif
 
  /* conf */
 
-extern int conf_getb (cdb const *, char const *, size_t, cdb_data *) ;
-extern int conf_get (cdb const *, char const *, cdb_data *) ;
-extern int conf_get_uint16 (cdb const *, char const *, uint16_t *) ;
-extern int conf_get_uint32 (cdb const *, char const *, uint32_t *) ;
-extern int conf_get_uint64 (cdb const *, char const *, uint64_t *) ;
-extern char const *conf_get_string (cdb const *, char const *) ;
+extern int conf_getb (char const *, size_t, cdb_data *) ;
+extern int conf_get (char const *, cdb_data *) ;
+extern int conf_get_uint16 (char const *, uint16_t *) ;
+extern int conf_get_uint32 (char const *, uint32_t *) ;
+extern int conf_get_uint64 (char const *, uint64_t *) ;
+extern char const *conf_get_string (char const *) ;
 
 
  /* query */
@@ -63,7 +63,7 @@ struct query_s
 
 extern void query_fail (query *) ;
 extern void query_success (query *) ;
-extern void query_new (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
+extern int query_new (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
 
 
  /* tcpconnection */
@@ -80,12 +80,13 @@ struct tcpconnection_s
   uint16_t next ;
   uint16_t xindex ;
 } ;
-#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0, .rdeadline = TAIN_INFINITE, .wdeadline = TAIN_INFINITE, .prev = 0, .next = 0. .xindex = UINT32_MAX }
+#define TCPCONNECTION_ZERO { .out = BUFALLOC_ZERO, .in = STRALLOC_ZERO, .instate = 0, .rdeadline = TAIN_INFINITE, .wdeadline = TAIN_INFINITE, .prev = 0, .next = 0, .xindex = UINT16_MAX }
 #define ntcp (genset_n(&g->tcpconnections) - 1)
 #define TCPCONNECTION(i) genset_p(tcpconnection, &g->tcpconnections, (i))
 #define tcpstart (TCPCONNECTION(g->tcpsentinel)->next)
 
 extern void tcpconnection_drop (tcpconnection *) ;
+extern int tcpconnection_flush (tcpconnection *) ;
 extern int tcpconnection_new (uint8_t, uint16_t, int, char const *, uint16_t) ;
 
 
@@ -102,7 +103,7 @@ struct udp4msg_s
 
 #ifdef SKALIBS_IPV6_ENABLED
 typedef struct udp6msg_s udp6msg, *udp6msg_ref ;
-struct udp4msg_s
+struct udp6msg_s
 {
   char ip[16] ;
   uint16_t port ;
@@ -120,15 +121,15 @@ struct udpqueue_s
   tain deadline ;
   uint16_t xindex ;
 } ;
-#define UDPQUEUE_ZERO { .fd = -1, .storage = STRALLOC_ZERO, .messages = GENALLOC_ZERO, .deadline = TAIN_INFINITE, .xindex = UINT32_MAX }
+#define UDPQUEUE_ZERO { .fd = -1, .storage = STRALLOC_ZERO, .messages = GENALLOC_ZERO, .deadline = TAIN_INFINITE, .xindex = UINT16_MAX }
 
 extern void udpqueue_drop (udpqueue *) ;
 
-extern int udpqueue_add4 (udpqueue *, char const *, uint16_t) ;
+extern int udpqueue_add4 (udpqueue *, char const *, uint16_t, char const *, uint16_t) ;
 extern int udpqueue_flush4 (udpqueue *) ;
 
 #ifdef SKALIBS_IPV6_ENABLED
-extern int udpqueue_add6 (udpqueue *, char const *, uint16_t) ;
+extern int udpqueue_add6 (udpqueue *, char const *, uint16_t, char const *, uint16_t) ;
 extern int udpqueue_flush6 (udpqueue *) ;
 #endif
 

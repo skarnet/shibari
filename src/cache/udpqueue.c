@@ -31,9 +31,9 @@ int udpqueue_add4 (udpqueue *q, char const *ip, uint16_t port, char const *s, ui
 
 int udpqueue_flush4 (udpqueue *q)
 {
-  size_t n = genalloc_n(udp4msg, &q->messages) ;
+  size_t n = genalloc_len(udp4msg, &q->messages) ;
   size_t shead = 0, head = 0 ;
-  ssize_t r ;
+  ssize_t r = 1 ;
   while (head < n)
   {
     udp4msg const *msg = genalloc_s(udp4msg, &q->messages) + head ;
@@ -47,8 +47,8 @@ int udpqueue_flush4 (udpqueue *q)
  adjust:
   memmove(q->storage.s, q->storage.s + shead, q->storage.len - shead) ;
   q->storage.len -= shead ;
-  memmove(genalloc_s(&udp4msg, &q->messages), genalloc_s(&udp4msg, &q->messages) + head, (n - head) * sizeof(udp4msg)) ;
-  genalloc_setlen(&udp4msg, &q->messages, n - head) ;
+  memmove(genalloc_s(udp4msg, &q->messages), genalloc_s(udp4msg, &q->messages) + head, (n - head) * sizeof(udp4msg)) ;
+  genalloc_setlen(udp4msg, &q->messages, n - head) ;
   if (shead) tain_add_g(&q->deadline, &g->wtto) ;
   return sanitize_read(r) ;
 }
@@ -68,9 +68,9 @@ int udpqueue_add6 (udpqueue *q, char const *ip, uint16_t port, char const *s, ui
 
 int udpqueue_flush6 (udpqueue *q)
 {
-  size_t n = genalloc_n(udp6msg, &q->messages) ;
+  size_t n = genalloc_len(udp6msg, &q->messages) ;
   size_t shead = 0, head = 0 ;
-  ssize_t r ;
+  ssize_t r = 1 ;
   while (head < n)
   {
     udp6msg const *msg = genalloc_s(udp4msg, &q->messages) + head ;
@@ -84,8 +84,8 @@ int udpqueue_flush6 (udpqueue *q)
  adjust:
   memmove(q->storage.s, q->storage.s + shead, q->storage.len - shead) ;
   q->storage.len -= shead ;
-  memmove(genalloc_s(&udp6msg, &q->messages), genalloc_s(&udp6msg, &q->messages) + head, (n - head) * sizeof(udp6msg)) ;
-  genalloc_setlen(&udp6msg, &q->messages, n - head) ;
+  memmove(genalloc_s(udp6msg, &q->messages), genalloc_s(udp6msg, &q->messages) + head, (n - head) * sizeof(udp6msg)) ;
+  genalloc_setlen(udp6msg, &q->messages, n - head) ;
   if (shead) tain_add_g(&q->deadline, &g->wtto) ;
   return sanitize_read(r) ;
 }

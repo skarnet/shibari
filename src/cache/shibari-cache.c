@@ -14,8 +14,10 @@
 #include <skalibs/uint64.h>
 #include <skalibs/types.h>
 #include <skalibs/fmtscan.h>
+#include <skalibs/error.h>
 #include <skalibs/strerr.h>
 #include <skalibs/sgetopt.h>
+#include <skalibs/allreadwrite.h>
 #include <skalibs/tai.h>
 #include <skalibs/socket.h>
 #include <skalibs/cdb.h>
@@ -23,11 +25,11 @@
 #include <skalibs/iopause.h>
 #include <skalibs/selfpipe.h>
 #include <skalibs/ip46.h>
-#inclide <skalibs/genalloc.h>
+#include <skalibs/genalloc.h>
+#include <skalibs/netstring.h>
 
 #include <shibari/config.h>
 #include <shibari/common.h>
-#include <shibari/cache.h>
 
 #include "shibari-cache-internal.h"
 
@@ -38,43 +40,44 @@
 
 global *g = 0 ;
 
-static int flagwantfinaldump = 1 ;
 static tain lameduckt = TAIN_INFINITE_RELATIVE ;
+static int flagwantfinaldump = 1 ;
+static unsigned int cont = 2 ;
 
 
 static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, char const **ip4, char const **ip6, uint16_t *maxtcp, uint16_t *maxqueries)
 {
   cdb_data data ;
   uint32_t u ;
-  if (!conf_get_uint16(&g->confdb, "G:logv", &g->verbosity))
+  if (!conf_get_uint16("G:logv", &g->verbosity))
     strerr_diefu4sys(102, "read ", "G:logv", " configuration key from ", conffile) ;
   {
     uint64_t cachesize ;
-    if (!conf_get_uint64(&g->confdb, "G:cachesize", &cachesize))
+    if (!conf_get_uint64("G:cachesize", &cachesize))
       strerr_diefu4sys(102, "read ", "G:cachesize", " configuration key from ", conffile) ;
     if (cachesize < 4096)
       strerr_dief2x(102, "invalid G:cachesize in ", conffile) ;
     cache_init(cachesize) ;
   }
-  if (!conf_get_uint16(&g->confdb, "G:maxtcp", maxtcp))
+  if (!conf_get_uint16("G:maxtcp", maxtcp))
     strerr_diefu4sys(102, "read ", "G:maxtcp", " configuration key from ", conffile) ;
   if (*maxtcp > 4096 || *maxtcp < 1)
     strerr_dief2x(102, "invalid G:maxtcp in ", conffile) ;
-  if (!conf_get_uint16(&g->confdb, "G:maxqueries", maxqueries))
+  if (!conf_get_uint16("G:maxqueries", maxqueries))
     strerr_diefu4sys(102, "read ", "G:maxqueries", " configuration key from ", conffile) ;
   if (*maxqueries > 8192 || *maxqueries < 1)
     strerr_dief2x(102, "invalid G:maxqueries in ", conffile) ;
-  if (!conf_get_uint32(&g->confdb, "G:rtimeout", &u))
+  if (!conf_get_uint32("G:rtimeout", &u))
   if (u) tain_from_millisecs(&g->rtto, u) ;
     strerr_diefu4sys(102, "read ", "G:rtimeout", " configuration key from ", conffile) ;
-  if (!conf_get_uint32(&g->confdb, "G:wtimeout", &u))
+  if (!conf_get_uint32("G:wtimeout", &u))
     strerr_diefu4sys(102, "read ", "G:wtimeout", " configuration key from ", conffile) ;
   if (u) tain_from_millisecs(&g->wtto, u) ;
-  g->dumpfile = conf_get_string(&g->confdb, "G:cachefile") ;
+  g->dumpfile = conf_get_string("G:cachefile") ;
   if (!g->dumpfile && errno != ENOENT)
     strerr_diefu4sys(102, "read ", "G:cachefile", " configuration key from ", conffile) ;
 
-  if (!conf_get(&g->confdb, "G:listen4", &data))
+  if (!conf_get("G:listen4", &data))
     strerr_diefu4sys(102, "read ", "G:listen4", " configuration key from ", conffile) ;
   if (data.len & 3)
     strerr_diefu4sys(102, "invalid ", "G:listen4", " key in ", conffile) ;
@@ -83,7 +86,7 @@ static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, 
   *n4 = data.len >> 2 ;
   *ip4 = data.s ;
 #ifdef SKALIBS_IPV6_ENABLED
-  if (!conf_get(&g.confdb, "G:listen6", &data))
+  if (!conf_get("G:listen6", &data))
     strerr_diefu4sys(102, "read ", "G:listen6", " configuration key from ", conffile) ;
   if (data.len & 15)
     strerr_diefu4sys(102, "invalid ", "G:listen6", " key in ", conffile) ;
@@ -92,7 +95,7 @@ static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, 
   *n6 = data.len >> 4 ;
   *ip6 = data.s ;
 #endif
-  if (!*n4 && !*n6) strerr_dief1x(102, "no listen addresses configured" ;
+  if (!*n4 && !*n6) strerr_dief1x(102, "no listen addresses configured") ;
 }
 
 static inline void handle_signals (void)
@@ -118,7 +121,7 @@ static inline void handle_signals (void)
 int main (int argc, char const *const *argv)
 {
   global globals = GLOBAL_ZERO ;
-  char const *conffile = SHIBARI_SYSCONFDIR "/shibari-cache.conf.cdb" ;
+  char const *conffile = SHIBARI_SYSCONFPREFIX "/shibari-cache.conf.cdb" ;
   uint16_t n4 = 0, n6 = 0, maxtcp, maxqueries ;
   char const *ip4 = 0, *ip6 = 0 ;
   unsigned int cont = 2 ;
@@ -165,7 +168,7 @@ int main (int argc, char const *const *argv)
   close(1) ;
 
   if (!cdb_init(&g->confdb, conffile)) strerr_diefu2sys(111, "open ", conffile) ;
-  conf_init(conffile, &n4, &n6, &ip4, &ip6, &maxtcp, &maxqueries, &dumpfile) ;
+  conf_init(conffile, &n4, &n6, &ip4, &ip6, &maxtcp, &maxqueries) ;
 
   sfd = selfpipe_init() ;
   if (sfd == -1) strerr_diefu1sys(111, "create selfpipe") ;
@@ -194,10 +197,10 @@ int main (int argc, char const *const *argv)
 
     memset(udpq4, 0, n4 * sizeof(udpqueue)) ;
     memset(udpq6, 0, n6 * sizeof(udpqueue)) ;
-    GENSET_init(g->tcpconnections, tcpconnection, tcpconnection_storage, tcpconnection_freelist, maxtcp + 1) ;
-    g->tcpsentinel = genset_new(g->tcpconnections) ;
-    GENSET_init(g->queries, query, query_storage, query_freelist, maxqueries + 1) ;
-    g->qsentinel = genset_new(g->queries) ;
+    GENSET_init(&g->tcpconnections, tcpconnection, tcpconnection_storage, tcpconnection_freelist, maxtcp + 1) ;
+    g->tcpsentinel = genset_new(&g->tcpconnections) ;
+    GENSET_init(&g->queries, query, query_storage, query_freelist, maxqueries + 1) ;
+    g->qsentinel = genset_new(&g->queries) ;
     {
       static const tcpconnection tcpconnection_zero = TCPCONNECTION_ZERO ;
       static const query query_zero = QUERY_ZERO ;
@@ -380,9 +383,9 @@ int main (int argc, char const *const *argv)
            tcpconnection_drop(p) ;
         }
         for (uint16_t i = 0 ; i < n4 ; i++)
-          if (!tain_future(&udp4q[i].deadline)) udpqueue_drop(udp4q + i) ;
+          if (!tain_future(&udpq4[i].deadline)) udpqueue_drop(udpq4 + i) ;
         for (uint16_t i = 0 ; i < n6 ; i++)
-          if (!tain_future(&udp6q[i].deadline)) udpqueue_drop(udp6q + i) ;
+          if (!tain_future(&udpq6[i].deadline)) udpqueue_drop(udpq6 + i) ;
       }
 
 
@@ -470,8 +473,8 @@ int main (int argc, char const *const *argv)
                 {
                   char fmtip[IP4_FMT] ;
                   char fmtport[UINT16_FMT] ;
-                  fmtip[ip4_fmt(fmtip, ip] = 0 ;
-                  fmtport[uint16_fmt(fmtport, port] = 0 ;
+                  fmtip[ip4_fmt(fmtip, ip)] = 0 ;
+                  fmtport[uint16_fmt(fmtport, port)] = 0 ;
                   strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
                 }
               }
@@ -506,8 +509,8 @@ int main (int argc, char const *const *argv)
                 {
                   char fmtip[IP4_FMT] ;
                   char fmtport[UINT16_FMT] ;
-                  fmtip[ip4_fmt(fmtip, ip] = 0 ;
-                  fmtport[uint16_fmt(fmtport, port] = 0 ;
+                  fmtip[ip4_fmt(fmtip, ip)] = 0 ;
+                  fmtport[uint16_fmt(fmtport, port)] = 0 ;
                   strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
                 }
               }
@@ -524,15 +527,23 @@ int main (int argc, char const *const *argv)
             int l = sanitize_read(mininetstring_read(bufalloc_fd(&p->out), &p->in, &p->instate)) ;
             if (l == -1) { i = p->prev ; tcpconnection_drop(p) ; }
             if (l <= 0) continue ;
-            if (sa.len < 12 || sa.len > 65536) { i = p->prev ; tcpconnection_drop(p) ; continue ; }
-            query_new(2, i, 0, 0, sa.s, sa.len) ;
-            sa.len = 0 ;
+            if (p->in.len < 12 || p->in.len > 65536) { i = p->prev ; tcpconnection_drop(p) ; continue ; }
+            if (!query_new(2, i, 0, 0, p->in.s, p->in.len))
+            {
+              if (g->verbosity)
+              {
+                char fmt[UINT16_FMT] ;
+                fmt[uint16_fmt(fmt, i)] = 0 ;
+                strerr_warnwu2sys("process TCP query on connection ", fmt) ;
+              }
+            }
+            p->in.len = 0 ;
           }
         }
 
         for (uint16_t i = 0 ; i < n4 ; i++) if (tcp4xindex[i] < UINT16_MAX)
         {
-          if (x[tcp4index[i]].revents & IOPAUSE_READ)
+          if (x[tcp4xindex[i]].revents & IOPAUSE_READ)
           {
             uint16_t n = MAXSAME ;
             while (n-- && ntcp < maxtcp)
@@ -543,9 +554,9 @@ int main (int argc, char const *const *argv)
               if (fd == -1)
               {
                 if (error_isagain(errno)) break ;
-                strerr_diefu4sys("create new TCP connection") ;
+                strerr_diefu1sys(111, "create new TCP connection") ;
               }
-              if (!clientaccess_ip4(ip)) { fd_close(fd) ; continue ; }
+              if (!clientaccess_ip4(ip)) { close(fd) ; continue ; }
               tcpconnection_new(0, i, fd, ip, port) ;
             }
           }
@@ -554,7 +565,7 @@ int main (int argc, char const *const *argv)
 #ifdef SKALIBS_IPV6_ENABLED
         for (uint16_t i = 0 ; i < n6 ; i++) if (tcp6xindex[i] < UINT16_MAX)
         {
-          if (x[tcp6index[i]].revents & IOPAUSE_READ)
+          if (x[tcp6xindex[i]].revents & IOPAUSE_READ)
           {
             uint16_t n = MAXSAME ;
             while (n-- && ntcp < maxtcp)
@@ -565,9 +576,9 @@ int main (int argc, char const *const *argv)
               if (fd == -1)
               {
                 if (error_isagain(errno)) break ;
-                strerr_diefu4sys("create new TCP connection") ;
+                strerr_diefu1sys(111, "create new TCP connection") ;
               }
-              if (!clientaccess_ip6(ip)) { fd_close(fd) ; continue ; }
+              if (!clientaccess_ip6(ip)) { close(fd) ; continue ; }
               tcpconnection_new(1, i, fd, ip, port) ;
             }
           }

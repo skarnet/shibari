@@ -21,7 +21,7 @@ void cache_dump (void)
     if (!dcache_save(&cache, g->dumpfile))
     {
       strerr_warnwu2sys("save cache contents to ", g->dumpfile) ;
-      unlink_void(file) ;
+      unlink_void(g->dumpfile) ;
     }
   }
 }

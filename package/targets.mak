@@ -1,7 +1,8 @@
 BIN_TARGETS := \
 shibari-server-tcp \
 shibari-server-udp \
-shibari-cache-config
+shibari-cache-config \
+shibari-cache
 
 LIBEXEC_TARGETS :=
 

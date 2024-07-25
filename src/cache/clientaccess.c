@@ -11,7 +11,7 @@
 static inline int check (char const *key, size_t keylen)
 {
   cdb_data data ;
-  return cdb_find(&confdb, &data, key, keylen) ;
+  return cdb_find(&g->confdb, &data, key, keylen) ;
 }
 
 int clientaccess_ip4 (char const *ip)

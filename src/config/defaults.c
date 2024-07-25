@@ -20,7 +20,7 @@ struct defaults_s
 static struct defaults_s const defaults[] =
 {
   RECU16("G:logv", 1),
-  RECU64("G:cachesize", 1048576),
+  RECU64("G:cachesize", 1048576ull),
   RECU16("G:maxtcp", 64),
   RECU16("G:maxqueries", 256),
   RECU32("G:rtimeout", 0),
