@@ -27,6 +27,15 @@ int conf_get (cdb const *c, char const *key, cdb_data *data)
   return conf_getb(c, key, strlen(key), data) ;
 }
 
+int conf_get_uint16 (cdb const *c, char const *key, uint16_t *value)
+{
+  cdb_data data ;
+  if (!conf_get(conf, key, &data)) return 0 ;
+  if (data.len != 2) return (errno = EPROTO, 0) ;
+  uint16_unpack_big(data.s, value) ;
+  return 1 ;
+}
+
 int conf_get_uint32 (cdb const *c, char const *key, uint32_t *value)
 {
   cdb_data data ;

@@ -42,11 +42,11 @@ static int flagwantfinaldump = 1 ;
 static tain lameduckt = TAIN_INFINITE_RELATIVE ;
 
 
-static inline void conf_init (char const *conffile, uint32_t *n4, uint32_t *n6, char const **ip4, char const **ip6, uint32_t *maxtcp, uint32_t *maxqueries)
+static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, char const **ip4, char const **ip6, uint16_t *maxtcp, uint16_t *maxqueries)
 {
   cdb_data data ;
   uint32_t u ;
-  if (!conf_get_uint32(&g->confdb, "G:logv", &g->verbosity))
+  if (!conf_get_uint16(&g->confdb, "G:logv", &g->verbosity))
     strerr_diefu4sys(102, "read ", "G:logv", " configuration key from ", conffile) ;
   {
     uint64_t cachesize ;
@@ -56,11 +56,11 @@ static inline void conf_init (char const *conffile, uint32_t *n4, uint32_t *n6, 
       strerr_dief2x(102, "invalid G:cachesize in ", conffile) ;
     cache_init(cachesize) ;
   }
-  if (!conf_get_uint32(&g->confdb, "G:maxtcp", maxtcp))
+  if (!conf_get_uint16(&g->confdb, "G:maxtcp", maxtcp))
     strerr_diefu4sys(102, "read ", "G:maxtcp", " configuration key from ", conffile) ;
   if (*maxtcp > 4096 || *maxtcp < 1)
     strerr_dief2x(102, "invalid G:maxtcp in ", conffile) ;
-  if (!conf_get_uint32(&g->confdb, "G:maxqueries", maxqueries))
+  if (!conf_get_uint16(&g->confdb, "G:maxqueries", maxqueries))
     strerr_diefu4sys(102, "read ", "G:maxqueries", " configuration key from ", conffile) ;
   if (*maxqueries > 8192 || *maxqueries < 1)
     strerr_dief2x(102, "invalid G:maxqueries in ", conffile) ;
@@ -78,6 +78,8 @@ static inline void conf_init (char const *conffile, uint32_t *n4, uint32_t *n6, 
     strerr_diefu4sys(102, "read ", "G:listen4", " configuration key from ", conffile) ;
   if (data.len & 3)
     strerr_diefu4sys(102, "invalid ", "G:listen4", " key in ", conffile) ;
+  if (data.len > 4 * 1024)
+    strerr_diefu3sys(102, "G:listen4", " key too long in ", conffile) ;
   *n4 = data.len >> 2 ;
   *ip4 = data.s ;
 #ifdef SKALIBS_IPV6_ENABLED
@@ -85,6 +87,8 @@ static inline void conf_init (char const *conffile, uint32_t *n4, uint32_t *n6, 
     strerr_diefu4sys(102, "read ", "G:listen6", " configuration key from ", conffile) ;
   if (data.len & 15)
     strerr_diefu4sys(102, "invalid ", "G:listen6", " key in ", conffile) ;
+  if (data.len > 16 * 1024)
+    strerr_diefu3sys(102, "G:listen6", " key too long in ", conffile) ;
   *n6 = data.len >> 4 ;
   *ip6 = data.s ;
 #endif
@@ -115,7 +119,7 @@ int main (int argc, char const *const *argv)
 {
   global globals = GLOBAL_ZERO ;
   char const *conffile = SHIBARI_SYSCONFDIR "/shibari-cache.conf.cdb" ;
-  uint32_t n4 = 0, n6 = 0, maxtcp, maxqueries ;
+  uint16_t n4 = 0, n6 = 0, maxtcp, maxqueries ;
   char const *ip4 = 0, *ip6 = 0 ;
   unsigned int cont = 2 ;
   int sfd = -1 ;
@@ -181,8 +185,8 @@ int main (int argc, char const *const *argv)
     udpqueue udpq6[n6 ? n6 : 1] ;
     int tcp4fd[n4 ? n4 : 1] ;
     int tcp6fd[n6 ? n6 : 1] ;
-    uint32_t tcp4xindex[n4 ? n4 : 1] ;
-    uint32_t tcp6xindex[n4 ? n4 : 1] ;
+    uint16_t tcp4xindex[n4 ? n4 : 1] ;
+    uint16_t tcp6xindex[n4 ? n4 : 1] ;
     tcpconnection tcpconnection_storage[maxtcp + 1] ;
     uint32_t tcpconnection_freelist[maxtcp + 1] ;
     query query_storage[maxqueries + 1] ;
@@ -205,7 +209,7 @@ int main (int argc, char const *const *argv)
       q->prev = q->next = g->qsentinel ;
     }
 
-    for (size_t i = 0 ; i < n4 ; i++)
+    for (uint16_t i = 0 ; i < n4 ; i++)
     {
       udpq4[i].fd = socket_udp4_nbcoe() ;
       if (udpq4[i].fd == -1) strerr_diefu1sys(111, "create udp4 socket") ;
@@ -225,7 +229,7 @@ int main (int argc, char const *const *argv)
       }
     }
 #ifdef SKALIBS_IPV6_ENABLED
-    for (size_t i = 0 ; i < n6 ; i++)
+    for (uint16_t i = 0 ; i < n6 ; i++)
     {
       udpq6[i].fd = socket_udp6_nbcoe() ;
       if (udpq6[i].fd == -1) strerr_diefu1sys(111, "create udp6 socket") ;
@@ -275,7 +279,7 @@ int main (int argc, char const *const *argv)
       x[0].events = IOPAUSE_READ ;
       if (cont == 1 && tain_less(&lameduckt, &deadline)) deadline = lameduckt ;
 
-      for (uint32_t i = 0 ; i < n4 ; i++)
+      for (uint16_t i = 0 ; i < n4 ; i++)
       {
         x[j].fd = udpq4[i].fd ;
         x[j].events = nq < maxqueries && cont >= 2 ? IOPAUSE_READ : 0 ;
@@ -285,7 +289,7 @@ int main (int argc, char const *const *argv)
           if (tain_less(&udpq4[i].deadline, &deadline)) deadline = udpq4[i].deadline ;
           r = 1 ;
         }
-        if (x[j].events) udpq4[i].xindex = j++ ; else udpq4[i].xindex = UINT32_MAX ;
+        if (x[j].events) udpq4[i].xindex = j++ ; else udpq4[i].xindex = UINT16_MAX ;
 
         if (ntcp < maxtcp && cont >= 2)
         {
@@ -293,11 +297,11 @@ int main (int argc, char const *const *argv)
           x[j].events = IOPAUSE_READ ;
           tcp4xindex[i] = j++ ;
         }
-        else tcp4xindex[i] = UINT32_MAX ;
+        else tcp4xindex[i] = UINT16_MAX ;
       }
 
 #ifdef SKALIBS_IPV6_ENABLED
-      for (uint32_t i = 0 ; i < n6 ; i++)
+      for (uint16_t i = 0 ; i < n6 ; i++)
       {
         x[j].fd = udpq6[i].fd ;
         x[j].events = nq < maxqueries && cont >= 2 ? IOPAUSE_READ : 0 ;
@@ -307,7 +311,7 @@ int main (int argc, char const *const *argv)
           if (tain_less(&udpq6[i].deadline, &deadline)) deadline = udpq6[i].deadline ;
           r = 1 ;
         }
-        if (x[j].events) udpq6[i].xindex = j++ ; else udpq6[i].xindex = UINT32_MAX ;
+        if (x[j].events) udpq6[i].xindex = j++ ; else udpq6[i].xindex = UINT16_MAX ;
 
         if (ntcp < maxtcp && cont >= 2)
         {
@@ -315,11 +319,11 @@ int main (int argc, char const *const *argv)
           x[j].events = IOPAUSE_READ ;
           tcp6xindex[i] = j++ ;
         }
-        else tcp6xindex[i] = UINT32_MAX ;
+        else tcp6xindex[i] = UINT16_MAX ;
       }
 #endif
 
-      for (uint32_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
+      for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
       {
         tcpconnection *p = TCPCONNECTION(i) ;
         x[j].fd = bufalloc_fd(&p->out) ;
@@ -335,16 +339,16 @@ int main (int argc, char const *const *argv)
           if (tain_less(&p->wdeadline, &deadline)) deadline = p->wdeadline ;
           r = 1 ;
         }
-        if (x[j].events) p->xindex = j++ ; else p->xindex = UINT32_MAX ;
+        if (x[j].events) p->xindex = j++ ; else p->xindex = UINT16_MAX ;
       }
 
-      for (uint32_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
+      for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
       {
         query *p = QUERY(i) ;
         x[j].fd = p->dt.fd ;
         s6dns_engine_nextdeadline(&p->dt, &deadline) ;
         x[j].events = (s6dns_engine_isreadable(&p->dt) ? IOPAUSE_READ : 0) | (s6dns_engine_iswritable(&p->dt) ? IOPAUSE_WRITE : 0) ;
-        if (x[j].events) p->xindex = j++ ; else p->xindex = UINT32_MAX ;
+        if (x[j].events) p->xindex = j++ ; else p->xindex = UINT16_MAX ;
       }
 
 
@@ -364,20 +368,20 @@ int main (int argc, char const *const *argv)
       if (!r)
       {
         if (cont == 1 && !tain_future(&lameduckt)) break ;
-        for (uint32_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
+        for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
         {
           query *p = QUERY(i) ;
           if (s6dns_engine_timeout_g(&p->dt)) { i = p->prev ; query_fail(p) ; }
         }
-        for (uint32_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
+        for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
           if (!tain_future(&p->rdeadline) || !tain_future(&p->wdeadline))
            tcpconnection_drop(p) ;
         }
-        for (uint32_t i = 0 ; i < n4 ; i++)
+        for (uint16_t i = 0 ; i < n4 ; i++)
           if (!tain_future(&udp4q[i].deadline)) udpqueue_drop(udp4q + i) ;
-        for (uint32_t i = 0 ; i < n6 ; i++)
+        for (uint16_t i = 0 ; i < n6 ; i++)
           if (!tain_future(&udp6q[i].deadline)) udpqueue_drop(udp6q + i) ;
       }
 
@@ -386,11 +390,11 @@ int main (int argc, char const *const *argv)
 
       else 
       {
-        for (uint32_t i = 0 ; i < j ; i++) if (x[i].revents & IOPAUSE_EXCEPT) x[i].revents |= x[i].events ;
+        for (uint16_t i = 0 ; i < j ; i++) if (x[i].revents & IOPAUSE_EXCEPT) x[i].revents |= x[i].events ;
 
         if (x[0].revents & IOPAUSE_READ) { handle_signals() ; continue ; }
 
-        for (uint32_t i = 0 ; i < n4 ; i++) if (udpq4[i].xindex < UINT32_MAX)
+        for (uint16_t i = 0 ; i < n4 ; i++) if (udpq4[i].xindex < UINT16_MAX)
         {
           if (x[udpq4[i].xindex].revents & IOPAUSE_WRITE)
           {
@@ -404,7 +408,7 @@ int main (int argc, char const *const *argv)
         }
 
 #ifdef SKALIBS_IPV6_ENABLED
-        for (uint32_t i = 0 ; i < n6 ; i++) if (udpq6[i].xindex < UINT32_MAX)
+        for (uint16_t i = 0 ; i < n6 ; i++) if (udpq6[i].xindex < UINT16_MAX)
         {
           if (x[udpq6[i].xindex].revents & IOPAUSE_WRITE)
           {
@@ -418,10 +422,10 @@ int main (int argc, char const *const *argv)
         }
 #endif
 
-        for (uint32_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
+        for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
-          if (p->xindex < UINT32_MAX && x[p->xindex].revents & IOPAUSE_WRITE)
+          if (p->xindex < UINT16_MAX && x[p->xindex].revents & IOPAUSE_WRITE)
           {
             if (tcpconnection_flush(p) == -1)
             {
@@ -431,20 +435,20 @@ int main (int argc, char const *const *argv)
           }
         }
 
-        for (uint32_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
+        for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
         {
           query *p = QUERY(i) ;
-          if (p->xindex == UINT32_MAX) continue ;
+          if (p->xindex == UINT16_MAX) continue ;
           r = s6dns_engine_event_g(&p->dt) ;
           if (r) i = p->prev ;
           if (r == -1) query_fail(p) ; else query_success(p) ;
         }
 
-        for (uint32_t i = 0 ; i < n4 ; i++)
+        for (uint16_t i = 0 ; i < n4 ; i++)
         {
-          if (udpq4[i].xindex < UINT32_MAX && x[udpq4[i].xindex].revents & IOPAUSE_READ)
+          if (udpq4[i].xindex < UINT16_MAX && x[udpq4[i].xindex].revents & IOPAUSE_READ)
           {
-            uint32_t n = MAXSAME ;
+            uint16_t n = MAXSAME ;
             char buf[513] ;
             char ip[4] ;
             uint16_t port ;
@@ -459,18 +463,28 @@ int main (int argc, char const *const *argv)
               }
               if (!len) break ;
               if (len < 12 || len > 512) continue ;
-              if (!ip4_access(ip)) continue ;
-              query_new(i, ip, 4, port, buf, len) ;
+              if (!clientaccess_ip4(ip)) continue ;
+              if (!query_new(0, i, ip, port, buf, len))
+              {
+                if (g->verbosity)
+                {
+                  char fmtip[IP4_FMT] ;
+                  char fmtport[UINT16_FMT] ;
+                  fmtip[ip4_fmt(fmtip, ip] = 0 ;
+                  fmtport[uint16_fmt(fmtport, port] = 0 ;
+                  strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
+                }
+              }
             }
           }
         }
 
 #ifdef SKALIBS_IPV6_ENABLED
-        for (uint32_t i = 0 ; i < n6 ; i++)
+        for (uint16_t i = 0 ; i < n6 ; i++)
         {
-          if (udpq6[i].xindex < UINT32_MAX && x[udpq6[i].xindex].revents & IOPAUSE_READ)
+          if (udpq6[i].xindex < UINT16_MAX && x[udpq6[i].xindex].revents & IOPAUSE_READ)
           {
-            uint32_t n = MAXSAME ;
+            uint16_t n = MAXSAME ;
             char buf[513] ;
             char ip[16] ;
             uint16_t port ;
@@ -485,39 +499,86 @@ int main (int argc, char const *const *argv)
               }
               if (!len) break ;
               if (len < 12 || len > 512) continue ;
-              if (!ip6_access(ip)) continue ;
-              query_new(n4 + i, ip, 16, port, buf, len) ;
+              if (!clientaccess_ip6(ip)) continue ;
+              if (!query_new(1, i, ip, port, buf, len))
+              {
+                if (g->verbosity)
+                {
+                  char fmtip[IP4_FMT] ;
+                  char fmtport[UINT16_FMT] ;
+                  fmtip[ip4_fmt(fmtip, ip] = 0 ;
+                  fmtport[uint16_fmt(fmtport, port] = 0 ;
+                  strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
+                }
+              }
             }
           }
         }
 #endif
 
-        for (uint32_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
+        for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
-          if (p->xindex < UINT32_MAX && x[p->xindex].revents & IOPAUSE_READ)
+          if (p->xindex < UINT16_MAX && x[p->xindex].revents & IOPAUSE_READ)
           {
             int l = sanitize_read(mininetstring_read(bufalloc_fd(&p->out), &p->in, &p->instate)) ;
             if (l == -1) { i = p->prev ; tcpconnection_drop(p) ; }
             if (l <= 0) continue ;
             if (sa.len < 12 || sa.len > 65536) { i = p->prev ; tcpconnection_drop(p) ; continue ; }
-            query_new(n4 + n6 + i, 0, 0, 0, sa.s, sa.len) ;
+            query_new(2, i, 0, 0, sa.s, sa.len) ;
             sa.len = 0 ;
           }
         }
 
-       for (uint32_t i = 0 ; i < n4 ; i++) if (tcp4xindex[i] < UINT32_MAX)
-       {
-         if (x[tcp4index[i]].revents & IOPAUSE_READ)
-         {
-         }
-       }
+        for (uint16_t i = 0 ; i < n4 ; i++) if (tcp4xindex[i] < UINT16_MAX)
+        {
+          if (x[tcp4index[i]].revents & IOPAUSE_READ)
+          {
+            uint16_t n = MAXSAME ;
+            while (n-- && ntcp < maxtcp)
+            {
+              char ip[4] ;
+              uint16_t port ;
+              int fd = socket_accept4_nbcoe(tcp4fd[i], ip, &port) ;
+              if (fd == -1)
+              {
+                if (error_isagain(errno)) break ;
+                strerr_diefu4sys("create new TCP connection") ;
+              }
+              if (!clientaccess_ip4(ip)) { fd_close(fd) ; continue ; }
+              tcpconnection_new(0, i, fd, ip, port) ;
+            }
+          }
+        }
+
+#ifdef SKALIBS_IPV6_ENABLED
+        for (uint16_t i = 0 ; i < n6 ; i++) if (tcp6xindex[i] < UINT16_MAX)
+        {
+          if (x[tcp6index[i]].revents & IOPAUSE_READ)
+          {
+            uint16_t n = MAXSAME ;
+            while (n-- && ntcp < maxtcp)
+            {
+              char ip[16] ;
+              uint16_t port ;
+              int fd = socket_accept6_nbcoe(tcp6fd[i], ip, &port) ;
+              if (fd == -1)
+              {
+                if (error_isagain(errno)) break ;
+                strerr_diefu4sys("create new TCP connection") ;
+              }
+              if (!clientaccess_ip6(ip)) { fd_close(fd) ; continue ; }
+              tcpconnection_new(1, i, fd, ip, port) ;
+            }
+          }
+        }
+#endif
 
       }
     }
   }
 
   if (flagwantfinaldump) cache_dump() ;
-  shibari_log_exit(verbosity, 0) ;
+//  shibari_log_exit(g->verbosity, 0) ;
   return 0 ;
 }

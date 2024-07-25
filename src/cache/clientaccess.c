@@ -1,8 +1,10 @@
 /* ISC license. */
 
 #include <stdint.h>
+#include <string.h>
 
 #include <skalibs/cdb.h>
+#include <skalibs/ip46.h>
 
 #include "shibari-cache-internal.h"
 
@@ -12,7 +14,7 @@ static inline int check (char const *key, size_t keylen)
   return cdb_find(&confdb, &data, key, keylen) ;
 }
 
-int ip4_access (char const *ip)
+int clientaccess_ip4 (char const *ip)
 {
   int r ;
   char key[9] = "A4:" ;
@@ -29,7 +31,8 @@ int ip4_access (char const *ip)
   return 0 ;
 }
 
-int ip6_access (char const *ip)
+#ifdef SKALIBS_IPV6_ENABLED
+int clientaccess_ip6 (char const *ip)
 {
   int r ;
   char key[21] = "A6:" ;
@@ -45,3 +48,4 @@ int ip6_access (char const *ip)
   }
   return 0 ;
 }
+#endif

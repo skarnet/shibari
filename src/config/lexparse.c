@@ -106,6 +106,16 @@ static int ipcmp (void const *a, void const *b, size_t n)
 }
 
 
+static void parse_u16 (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line, char const *directive, char const *key)
+{
+  uint16_t u ;
+  char pack[2] ;
+  if (n != 1) dieparse(ifile, line, directive, n ? "too many arguments" : "too few arguments", 0, 0, 0) ;
+  if (!uint160_scan(s + word[0], &u)) dieparse(ifile, line, directive, "argument must be an integer", 0, 0, 0) ;
+  uint16_pack_big(pack, u) ;
+  adds_unique(ifile, line, directive, key, pack, 2) ;
+}
+
 static void parse_u32 (char const *s, size_t const *word, size_t n, char const *ifile, uint32_t line, char const *directive, char const *key)
 {
   uint32_t u ;
@@ -225,16 +235,16 @@ static inline void process_line (char const *s, size_t const *word, size_t n, ch
   switch (directive->value)
   {
     case T_VERBOSITY :
-      parse_u32(s, word, n, ifile, line, "verbosity", "G:logv") ;
+      parse_u16(s, word, n, ifile, line, "verbosity", "G:logv") ;
       break ;
     case T_CACHESIZE :
       parse_u64(s, word, n, ifile, line, "cache_size", "G:cachesize") ;
       break ;
     case T_MAXTCP :
-      parse_u32(s, word, n, ifile, line, "maxtcp", "G:maxtcp") ;
+      parse_u16(s, word, n, ifile, line, "maxtcp", "G:maxtcp") ;
       break ;
     case T_MAXQUERIES :
-      parse_u32(s, word, n, ifile, line, "maxqueries", "G:maxqueries") ;
+      parse_u16(s, word, n, ifile, line, "maxqueries", "G:maxqueries") ;
       break ;
     case T_RTIMEOUT :
       parse_u32(s, word, n, ifile, line, "read_timeout", "G:rtimeout") ;
