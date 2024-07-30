@@ -9,6 +9,7 @@
 #include <skalibs/uint64.h>
 #include <skalibs/cdb.h>
 #include <skalibs/tai.h>
+#include <skalibs/strerr.h>
 #include <skalibs/stralloc.h>
 #include <skalibs/genalloc.h>
 #include <skalibs/bufalloc.h>
@@ -19,6 +20,8 @@
 #include <s6-dns/s6dns-engine.h>
 
 #include <shibari/dcache.h>
+
+#define dienomem() strerr_diefu1sys(111, "concatenate data") ;
 
 
  /* cache */
@@ -47,17 +50,15 @@ extern int conf_get_uint64 (char const *, uint64_t *) ;
 extern char const *conf_get_string (char const *) ;
 
 
- /* dns */
-
-extern int dns_newquery (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
-
-
  /* log */
 
+extern void log_udp4bad (char const *, uint16_t) ;
 extern void log_newtcp4 (char const *, uint16_t) ;
-#ifdef SKALIBS_IPV6_ENABLED
-extern void log_newtcp6 (char const *, uint16_t) ;
+extern void log_tcpbad (uint16_t) ;
 extern void log_tcptimeout (uint16_t) ;
+#ifdef SKALIBS_IPV6_ENABLED
+extern void log_udp6bad (char const *, uint16_t) ;
+extern void log_newtcp6 (char const *, uint16_t) ;
 #endif
 
 
@@ -67,15 +68,17 @@ typedef struct query_s query, *query_ref ;
 struct query_s
 {
   s6dns_engine_t dt ;
+  stralloc qname ;
   uint16_t prev ;
   uint16_t next ;
   uint16_t xindex ;
   uint16_t i ;
   uint16_t port ;
+  uint16_t qtype ;
   uint8_t source ;
   char ip[SKALIBS_IP_SIZE] ;
 } ;
-#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX, .i = 0, .port = 0, .source = 0, .ip = { 0 } }
+#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .qname = STRALLOC_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX, .i = 0, .port = 0, qtype = 0, name = 0, .source = 0, .ip = { 0 } }
 #define nq (genset_n(&g->queries) - 1)
 #define QUERY(i) genset_p(query, &g->queries, (i))
 #define qstart (QUERY(g->qsentinel)->next)
@@ -83,8 +86,9 @@ struct query_s
 extern uint16_t query_abort (uint16_t) ;
 extern uint16_t query_fail (uint16_t) ;
 extern uint16_t query_succeed (uint16_t) ;
-extern int query_new (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
 
+extern int query_start (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
+extern int query_end (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
 
  /* tcpconnection */
 
@@ -114,32 +118,20 @@ extern void tcpconnection_new (int) ;
 
  /* udpqueue */
 
-typedef struct udp4msg_s udp4msg, *udp4msg_ref ;
-struct udp4msg_s
+typedef struct udpaux_s udpaux, *udpaux_ref ;
+struct udpaux_s
 {
-  char ip[4] ;
   uint16_t port ;
   uint16_t len ;
 } ;
-#define UDP4MSG_ZERO { .ip = { 0 }, .port = 0, .len = 0 }
-
-#ifdef SKALIBS_IPV6_ENABLED
-typedef struct udp6msg_s udp6msg, *udp6msg_ref ;
-struct udp6msg_s
-{
-  char ip[16] ;
-  uint16_t port ;
-  uint16_t len ;
-} ;
-#define UDP6MSG_ZERO { .ip = { 0 }, .port = 0, .len = 0 }
-#endif
+#define UDPAUX_ZERO { .port = 0, .len = 0 }
 
 typedef struct udpqueue_s udpqueue, *udpqueue_ref ;
 struct udpqueue_s
 {
   int fd ;
   stralloc storage ;
-  genalloc messages ; /* udp[46]msg */
+  genalloc messages ; /* udpaux */
   tain deadline ;
   uint16_t xindex ;
 } ;
@@ -147,13 +139,8 @@ struct udpqueue_s
 
 extern void udpqueue_drop (udpqueue *) ;
 
-extern int udpqueue_add4 (udpqueue *, char const *, uint16_t, char const *, uint16_t) ;
-extern int udpqueue_flush4 (udpqueue *) ;
-
-#ifdef SKALIBS_IPV6_ENABLED
-extern int udpqueue_add6 (udpqueue *, char const *, uint16_t, char const *, uint16_t) ;
-extern int udpqueue_flush6 (udpqueue *) ;
-#endif
+extern int udpqueue_add (udpqueue *, uint8_t, char const *, uint16_t, char const *, uint16_t) ;
+extern int udpqueue_flush (udpqueue *, uint8_t) ;
 
 
  /* main */
@@ -166,6 +153,7 @@ struct global_s
   uint16_t verbosity ;
   tain rtto ;
   tain wtto ;
+  udpqueue *udpqueues[2] ;
   genset tcpconnections ;  /* tcpconnection */
   genset queries ;  /* query */
   uint16_t tcpsentinel ;
@@ -177,6 +165,7 @@ struct global_s
   .verbosity = 1, \
   .rtto = TAIN_INFINITE, \
   .wtto = TAIN_INFINITE, \
+  .udpqueues = { 0, 0 }, \
   .tcpconnections = GENSET_ZERO, \
   .queries = GENSET_ZERO, \
   .tcpsentinel = 0, \

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <errno.h>
 
+#include <skalibs/uint16.h>
 #include <skalibs/allreadwrite.h>
 #include <skalibs/error.h>
 #include <skalibs/tai.h>
@@ -37,6 +38,16 @@ uint16_t tcpconnection_delete (tcpconnection *p)
   TCPCONNECTION(p->next)->prev = p->prev ;
   p->xindex = UINT16_MAX ;
   return newi ;
+}
+
+int tcpconnection_add (tcpconnection *p, char const *s, uint16_t len)
+{
+  char pack[2] ;
+  if (!stralloc_readyplus(&p->out.x, 2 + len)) return 0 ;
+  uint16_pack_big(pack, len) ;
+  bufalloc_put(&p->out, pack, 2) ;
+  bufalloc_put(&p->out, s, len) ;
+  return 0 ;
 }
 
 int tcpconnection_flush (tcpconnection *p)

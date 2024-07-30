@@ -197,6 +197,8 @@ int main (int argc, char const *const *argv)
 
     memset(udpq4, 0, n4 * sizeof(udpqueue)) ;
     memset(udpq6, 0, n6 * sizeof(udpqueue)) ;
+    g->udpqueues[0] = udpq4 ;
+    g->udpqueues[1] = udpq6 ;
     memset(tcpconnection_storage, 0, (maxtcp + 1) * sizeof(tcpconnection)) ;
     memset(query_storage, 0, (maxqueries + 1) * sizeof(query)) ;
     GENSET_init(&g->tcpconnections, tcpconnection, tcpconnection_storage, tcpconnection_freelist, maxtcp + 1) ;
@@ -391,9 +393,10 @@ int main (int argc, char const *const *argv)
 
       else 
       {
-        for (uint16_t i = 0 ; i < j ; i++) if (x[i].revents & IOPAUSE_EXCEPT) x[i].revents |= x[i].events ;
-
         if (x[0].revents & IOPAUSE_READ) { handle_signals() ; continue ; }
+
+
+       /* write udp */
 
         for (uint16_t i = 0 ; i < n4 ; i++) if (udpq4[i].xindex < UINT16_MAX)
         {
@@ -423,12 +426,18 @@ int main (int argc, char const *const *argv)
         }
 #endif
 
+
+       /* write tcp */
+
         for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
           if (p->xindex < UINT16_MAX && x[p->xindex].revents & IOPAUSE_WRITE)
             if (tcpconnection_flush(p) == -1) i = tcpconnection_delete(p) ;
         }
+
+
+       /* process in-flight queries */
 
         for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
         {
@@ -437,6 +446,9 @@ int main (int argc, char const *const *argv)
           if (r < 0) i = query_fail(i) ;
           else if (r > 0) i = query_succeed(i) ;
         }
+
+
+       /* read udp */
 
         for (uint16_t i = 0 ; i < n4 ; i++)
         {
@@ -456,18 +468,11 @@ int main (int argc, char const *const *argv)
                 strerr_diefu2sys(111, "read from UDP socket bound to ", fmt) ;
               }
               if (!len) break ;
-              if (len < 12 || len > 512) continue ;
-              if (!clientaccess_ip4(ip)) continue ;
-              if (!dns_newquery(0, i, ip, port, buf, len))
+              if (len < 12 || len > 512
+               || !clientaccess_ip4(ip)
+               || !query_start(0, i, ip, port, buf, len))
               {
-                if (g->verbosity)
-                {
-                  char fmtip[IP4_FMT] ;
-                  char fmtport[UINT16_FMT] ;
-                  fmtip[ip4_fmt(fmtip, ip)] = 0 ;
-                  fmtport[uint16_fmt(fmtport, port)] = 0 ;
-                  strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
-                }
+                if (g->verbosity >= 3) log_udpbad(ip, port) ;
               }
             }
           }
@@ -492,23 +497,19 @@ int main (int argc, char const *const *argv)
                 strerr_diefu2sys(111, "read from UDP socket bound to ", fmt) ;
               }
               if (!len) break ;
-              if (len < 12 || len > 512) continue ;
-              if (!clientaccess_ip6(ip)) continue ;
-              if (!dns_newquery(1, i, ip, port, buf, len))
+              if (len < 12 || len > 512
+               || !clientaccess_ip6(ip)
+               || !query_start(1, i, ip, port, buf, len))
               {
-                if (g->verbosity)
-                {
-                  char fmtip[IP4_FMT] ;
-                  char fmtport[UINT16_FMT] ;
-                  fmtip[ip4_fmt(fmtip, ip)] = 0 ;
-                  fmtport[uint16_fmt(fmtport, port)] = 0 ;
-                  strerr_warnwu4sys("process new UDP query from ip ", fmtip, " port ", fmtport) ;
-                }
+                if (g->verbosity >= 3) log_udpbad(ip, port) ;
               }
             }
           }
         }
 #endif
+
+
+       /* read tcp */
 
         for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
@@ -521,20 +522,20 @@ int main (int argc, char const *const *argv)
               int l = sanitize_read(mininetstring_read(bufalloc_fd(&p->out), &p->in, &p->instate)) ;
               if (l == -1) { i = tcpconnection_delete(p) ; break ; }
               if (!l) break ;
-              if (p->in.len < 12 || p->in.len > 65536) { i = tcpconnection_delete(p) ; break ; }
-              if (!dns_newquery(2, i, 0, 0, p->in.s, p->in.len))
+              if (p->in.len < 12 || p->in.len > 65536
+               || !query_start(2, i, 0, 0, p->in.s, p->in.len))
               {
-                if (g->verbosity)
-                {
-                  char fmt[UINT16_FMT] ;
-                  fmt[uint16_fmt(fmt, i)] = 0 ;
-                  strerr_warnwu2sys("process TCP query on connection ", fmt) ;
-                }
+                if (g->verbosity >= 3) log_tcpbad(i) ;
+                i = tcpconnection_delete(p) ;
+                break ;
               }
               p->in.len = 0 ;
             }
           }
         }
+
+
+       /* new tcp */
 
         for (uint16_t i = 0 ; i < n4 ; i++) if (tcp4xindex[i] < UINT16_MAX)
         {

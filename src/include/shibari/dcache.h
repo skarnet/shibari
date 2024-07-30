@@ -42,7 +42,8 @@ struct dcache_s
 #define DCACHE_ZERO { .storage = GENSETDYN_ZERO, .by_key = AVLTREE_ZERO, .by_entry = AVLTREE_ZERO, .by_expire = AVLTREE_ZERO, .max = 0, .size = 0, .motion = 0 }
 
 extern void dcache_init (dcache_t *, uint64_t) ;
-extern dcache_node_t *dcache_search (dcache_t *, char const *, uint16_t) ;
+extern dcache_node_t *dcache_search (dcache_t *, char const *, uint16_t, tain const *) ;
+#define dcache_search_g(d, key, keylen) dcache_search(d, key, (keylen), &STAMP)
 extern int dcache_add (dcache_t *, char const *, uint16_t, char const *, uint16_t, tain const *, tain const *) ;
 #define dcache_add_g(d, key, keylen, data, datalen, expire) dcache_add(d, key, keylen, data, datalen, (expire), &STAMP)
 extern void dcache_clean_expired (dcache_t *, tain const *) ;

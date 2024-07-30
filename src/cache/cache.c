@@ -45,7 +45,7 @@ int cache_search (s6dns_domain_t const *name, uint16_t qtype, dcache_key_t *data
   char key[name->len + 1] ;
   uint16_pack_big(key, qtype) ;
   memcpy(key + 2, name->s, name->len - 1) ;
-  node = dcache_search(&cache, key, name->len + 1) ;
+  node = dcache_search_g(&cache, key, name->len + 1) ;
   if (!node) return 0 ;
   data->s = node->key.s + node->key.len ;
   data->len = node->datalen ;
