@@ -31,9 +31,10 @@ enum directivevalue_e
   T_VERBOSITY,
   T_CACHESIZE,
   T_MAXTCP,
-  T_MAXQUERIES,
+  T_MAXTASKS,
   T_RTIMEOUT,
   T_WTIMEOUT,
+  T_QTIMEOUT,
   T_CACHEFILE,
   T_LISTEN,
   T_ACCEPT,
@@ -219,8 +220,9 @@ static inline void process_line (char const *s, size_t const *word, size_t n, ch
     { .name = "cache_size", .value = T_CACHESIZE },
     { .name = "forward", .value = T_FORWARD },
     { .name = "listen", .value = T_LISTEN },
-    { .name = "maxqueries", .value = T_MAXQUERIES },
+    { .name = "maxtasks", .value = T_MAXTASKS },
     { .name = "maxtcp", .value = T_MAXTCP },
+    { .name = "query_timeout", .value = T_QTIMEOUT },
     { .name = "read_timeout", .value = T_RTIMEOUT },
     { .name = "server", .value = T_SERVER },
     { .name = "verbosity", .value = T_VERBOSITY },
@@ -243,14 +245,17 @@ static inline void process_line (char const *s, size_t const *word, size_t n, ch
     case T_MAXTCP :
       parse_u16(s, word, n, ifile, line, "maxtcp", "G:maxtcp") ;
       break ;
-    case T_MAXQUERIES :
-      parse_u16(s, word, n, ifile, line, "maxqueries", "G:maxqueries") ;
+    case T_MAXTASKS :
+      parse_u16(s, word, n, ifile, line, "maxtasks", "G:maxtasks") ;
       break ;
     case T_RTIMEOUT :
       parse_u32(s, word, n, ifile, line, "read_timeout", "G:rtimeout") ;
       break ;
     case T_WTIMEOUT :
       parse_u32(s, word, n, ifile, line, "write_timeout", "G:wtimeout") ;
+      break ;
+    case T_QTIMEOUT :
+      parse_u32(s, word, n, ifile, line, "query_timeout", "G:qtimeout") ;
       break ;
     case T_CACHEFILE :
       parse_string(s, word, n, ifile, line, "cache_file", "G:cachefile") ;

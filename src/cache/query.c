@@ -1,13 +1,25 @@
 /* ISC license. */
 
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
 
-#include <s6-dns/s6dns.h>
+#include <skalibs/bitarray.h>
+#include <skalibs/error.h>
+#include <skalibs/ip46.h>
+#include <skalibs/tai.h>
+#include <skalibs/random.h>
+#include <skalibs/gensetdyn.h>
 
-#include <shibari/constants.h>
+#include <s6-dns/s6dns-engine.h>
+#include <s6-dns/s6dns-ip46.h>
+
+#include <shibari/dcache.h>
 #include "shibari-cache-internal.h"
 
-static uint16_t query_delete (query *q)
+#include <skalibs/posixishard.h>
+
+static inline uint16_t query_delete (query *q)
 {
   uint16_t newi = q->prev ;
   QUERY(newi)->next = q->next ;
@@ -17,105 +29,88 @@ static uint16_t query_delete (query *q)
   return newi ;
 }
 
-uint16_t query_abort (uint16_t id)
+uint16_t query_event (uint16_t qid)
 {
-  query *q = QUERY(id) ;
-  s6dns_engine_recycle(&q->dt) ;
-  return query_delete(q) ;
-}
-
-uint16_t query_fail (uint16_t id)
-{
-  query *q = QUERY(id) ;
-
-  if (q->source == 2) tcpconnection_removequery(TCPCONNECTION(q->i), id) ;
-  return query_delete(q) ;
-}
-
-uint16_t query_succeed (uint16_t id)
-{
-  query *q = QUERY(id) ;
-
-  if (q->source == 2) tcpconnection_removequery(TCPCONNECTION(q->i), id) ;
-  return query_delete(q) ;
-}
-
-int query_end (uint8_t source, uint16_t i, char const *ip, uint16_t port, char const *buf, uint16_t len)
-{
-  return source < 2 ?
-    udpqueue_add(g->udpqueues[source] + i, source, ip, port, buf, len) :
-    tcpconnection_add(g->tcpconnections + i, buf, len) ;
-}
-
-int query_error (uint8_t source, uint16_t i, char const *ip, uint16_t port, s6dns_domain_t *name, uint16_t qtype, uint16_t id, unsigned int rcode)
-{
-  s6dns_message_header_t hdr = S6DNS_MESSAGE_HEADER_ZERO ;
-  unsigned int pos = 12 ;
-  char pkt[name->len + 16] ;
-  hdr.id = id ;
-  hdr.qr = 1 ;
-  hdr.ra = 1 ;
-  hdr.rcode = rcode ;
-  hdr.counts.qd = 1 ;
-  s6dns_message_header_pack(pkt, &hdr) ;
-  memcpy(pkt + pos, name->s, name->len) ; pos += name->len ;
-  uint16_pack_big(pkt + pos, qtype) ; pos += 2 ;
-  uint16_pack_big(pkt + pos, SHIBARI_C_IN) ; pos += 2 ;
-  return query_end(source, i, ip, port, pkt, pos) ;
-}
-
-static void query_init (query *q, uint8_t source, uint16_t i, char const *ip, uint16_t port, s6dns_domain_t const *name, uint16_t qtype)
-{
-  q->source = source ;
-  q->i = i ;
-  if (source < 2)
+  query *q = QUERY(qid) ;
+  dcache_string question ;
+  int r ;
+  uint32_t nodeid ;
+  uint16_t qtype ;
+  uint16_t rcode = 0 ;
+  switch (q->dt.status)
   {
-    memcpy(q->ip, ip, source ? 16 : 4) ;
-    q->port = port ;
+    case EAGAIN :
+    case EWOULDBLOCK : return qid ;
+    case 0 : break ;
+    case EOPNOTSUP : rcode = 4 ; break ;
+    case EPROTO : rcode = 1 ; break ;
+    default : rcode = 2 ; break ;
   }
-  q->port = port ;
-  if (!stralloc_catb(&q->qname, name->s, name->len)) dienomem() ;
-  q->qtype = qtype ;
-  q->prefixlen = 0 ;
+  s6dns_engine_query(&q->dt, &question.s, &question.len, &qtype) ;
+  r = dcache_searchnode_g(&g->dcache, &nodeid, question.s, question.len, qtype) ;
+  switch (r)
+  {
+    case -1 :
+      log_warn_unexpected_answer(question.s, question.len, qtype, 0) ;
+      if (!rcode) dcache_add_new_answer(&g->dcache, question.s, question.len, qtype, s6dns_engine_packet(&q->dt), s6dns_engine_packetlen(&q->dt)) ;
+      break ;
+    case 1 :
+      log_warn_unexpected_answer(question.s, question.len, qtype, 1) ;
+      if (!rcode) dcache_refresh_answer(&g->dcache, nodeid, s6dns_engine_packet(&q->dt), s6dns_engine_packetlen(&q->dt)) ;
+      break ;
+    case 0 :
+    {
+      uint16_t n = dcache_get_taskn(&g->cache, nodeid) ;
+      uint16_t tasks[n ? n : 1] ;
+      dcache_get_tasks(&g->cache, nodeid, tasks, taskn) ;
+      if (rcode) dcache_delete(&g->cache, nodeid) ;
+      else
+      {
+        dcache_add_answer(&g->dcache, nodeid, s6dns_engine_packet(&q->dt), s6dns_engine_packetlen(&q->dt)) ;
+        s6dns_engine_recycle(&q->dt) ;
+      }
+      for (uint16_t i = 0 ; i < n ; i++) dnstask_wakeup(tasks[i], rcode, nodeid) ;
+      break ;
+    }
+  }
+  return query_delete(q) ;
 }
 
-static query *query_new (uint8_t source, uint16_t i, char const *ip, uint16_t port, s6dns_domain_t const *name, uint16_t qtype)
+static inline uint16_t query_new (void)
 {
-  uint16_t n = genset_new(&g->queries) ;
+  uint32_t qid ;
+  if (!gensetdyn_new(&g->queries, &qid) || n > UINT16_MAX) dienomem() ;
   query *sentinel = QUERY(g->qsentinel) ;
-  query *q = QUERY(n) ;
-  query_init(q, source, i, ip, port, name, type) ;
+  query *q = QUERY(qid) ;
   q->prev = g->qsentinel ;
   q->next = sentinel->next ;
-  QUERY(sentinel->next)->prev = n ;
-  sentinel->next = n ;
-  return q ;
+  QUERY(sentinel->next)->prev = qid ;
+  sentinel->next = qid ;
+  return qid ;
 }
 
-int query_start (uint8_t source, uint16_t i, char const *ip, uint16_t port, char const *buf, uint16_t len)
+uint16_t query_start (uint16_t tid, char const *q, uint16_t qlen, uint16_t qtype, char const *ip4, uint16_t n4, char const *ip6, uint16_t n6, uint32_t flags)
 {
-  dcache_key_t data ;
-  s6dns_message_header_t hdr ;
-  s6dns_message_counts_t counts ;
-  s6dns_domain_t name ;
-  unsigned int pos ;
-  unsigned int rcode ;
-  uint16_t qtype ;
-
-  if (!s6dns_message_parse_init(&hdr, &counts, buf, len, &pos)
-   || !s6dns_message_parse_question(&counts, &name, &qtype, buf, len, &pos)
-   || !s6dns_domain_encode(&name)) return 0 ;
-  if (hdr.opcode) return query_error(source, i, ip, port, &name, qtype, hdr.id, 4) ;
-  if (!hdr.rd) return query_error(source, i, ip, port, &name, qtype, hdr.id, 9) ;
-
-  if (cache_search(&name, qtype, &data))
-    return query_end(source, i, ip, port, data.s, data.len) ;
-
+  query *p ;
+  tain qdeadline ;
+  uint16_t qid ;
+  uint16_t n = n4 + n6 ;
+  s6dns_ip46list_t servers = S6DNS_IP46LIST_ZERO ;  /* TODO: away with all this goofiness */
   {
-    uint16_t j = genset_new(&g->queries) ;
-    query *q = QUERY(j) ;
+    ip46 list[n] ;
+    for (uint16_t i = 0 ; i < n4 ; i++) ip46_from_ip4(list + i, ip4 + (i<<2)) ;
+    for (uint16_t i = 0 ; i < n6 ; i++) ip46_from_ip6(list + n4 + i, ip6 + (i<<4)) ;
+    random_unsort(list, n, sizeof(ip46)) ;
+    for (uint16_t i = 0 ; i < n ; i++)
+    {
+      memcpy(servers.ip + i * SKALIBS_IP_SIZE, list[i].ip, ip46_is6(list + i) ? 16 : 4) ;
+      if (ip46_is6(list + i)) bitarray_set(servers.is6, i) ;
+    }
   }
-
-  return 1 ;
+  tain_add_g(&qdeadline, &g->qtto) ;
+  qid = query_new() ;
+  p = QUERY(qid) ;
+  if (!dcache_add_new_entry(&g->cache, q, qlen, qtype, tid)) dienomem() ;
+  if (!s6dns_engine_init_g(&q->dt, servers, flags, q, qlen, qtype, &qdeadline)) dienewquery() ;
+  return qid ;
 }
-

@@ -14,18 +14,17 @@
 
 #include <skalibs/posixishard.h>
 
-static inline int dcache_load_node (dcache_t *z, buffer *b)
+static inline int dcache_load_node (dcache *z, buffer *b)
 {
-  tain entry = { .nano = 0 } ;
-  tain expire = { .nano = 0 } ;
+  tai entry, expire ;
   uint16_t keylen ;
   uint16_t datalen ;
   char pack[TAI_PACK * 2 + 4] ;
   ssize_t r = buffer_get(b, pack, TAI_PACK * 2 + 4) ;
   if (!r) return 0 ;
   if (r < TAI_PACK * 2 + 4) return -1 ;
-  tai_unpack(pack, tain_secp(&entry)) ;
-  tai_unpack(pack + TAI_PACK, tain_secp(&expire)) ;
+  tai_unpack(pack, &entry) ;
+  tai_unpack(pack + TAI_PACK, &expire) ;
   uint16_unpack_big(pack + TAI_PACK * 2, &keylen) ;
   uint16_unpack_big(pack + TAI_PACK * 2 + 2, &datalen) ;
   {
@@ -35,12 +34,12 @@ static inline int dcache_load_node (dcache_t *z, buffer *b)
     if (!r) return (errno = EPIPE, -1) ;
     if (r < len) return -1 ;
     if (blob[len]) return (errno = EPROTO, -1) ;
-    if (!dcache_add(z, blob, keylen, blob + keylen, datalen, &expire, &entry)) return -1 ;
+//    if (!dcache_add(z, blob, keylen, blob + keylen, datalen, &expire, &entry)) return -1 ;
   }
   return 1 ;
 }
 
-static inline int dcache_load_from_buffer (dcache_t *z, buffer *b)
+static inline int dcache_load_from_buffer (dcache *z, buffer *b)
 {
   {
     char banner[sizeof(DCACHE_MAGIC) - 1] ;
@@ -64,7 +63,7 @@ static inline int dcache_load_from_buffer (dcache_t *z, buffer *b)
 
 #define N 8192
 
-int dcache_load (dcache_t *z, char const *file)
+int dcache_load (dcache *z, char const *file)
 {
   char buf[N] ;
   buffer b ;

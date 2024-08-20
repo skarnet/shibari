@@ -45,7 +45,7 @@ static int flagwantfinaldump = 1 ;
 static unsigned int cont = 2 ;
 
 
-static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, char const **ip4, char const **ip6, uint16_t *maxtcp, uint16_t *maxqueries)
+static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, char const **ip4, char const **ip6, uint16_t *maxtcp, uint16_t *maxtasks)
 {
   cdb_data data ;
   uint32_t u ;
@@ -63,16 +63,19 @@ static inline void conf_init (char const *conffile, uint16_t *n4, uint16_t *n6, 
     strerr_diefu4sys(102, "read ", "G:maxtcp", " configuration key from ", conffile) ;
   if (*maxtcp > 4096 || *maxtcp < 1)
     strerr_dief2x(102, "invalid G:maxtcp in ", conffile) ;
-  if (!conf_get_uint16("G:maxqueries", maxqueries))
-    strerr_diefu4sys(102, "read ", "G:maxqueries", " configuration key from ", conffile) ;
-  if (*maxqueries > 8192 || *maxqueries < 1)
-    strerr_dief2x(102, "invalid G:maxqueries in ", conffile) ;
+  if (!conf_get_uint16("G:maxtasks", maxtasks))
+    strerr_diefu4sys(102, "read ", "G:maxtasks", " configuration key from ", conffile) ;
+  if (*maxtasks > 8192 || *maxtasks < 1)
+    strerr_dief2x(102, "invalid G:maxtasks in ", conffile) ;
   if (!conf_get_uint32("G:rtimeout", &u))
   if (u) tain_from_millisecs(&g->rtto, u) ;
     strerr_diefu4sys(102, "read ", "G:rtimeout", " configuration key from ", conffile) ;
   if (!conf_get_uint32("G:wtimeout", &u))
     strerr_diefu4sys(102, "read ", "G:wtimeout", " configuration key from ", conffile) ;
   if (u) tain_from_millisecs(&g->wtto, u) ;
+  if (!conf_get_uint32("G:qtimeout", &u))
+    strerr_diefu4sys(102, "read ", "G:qtimeout", " configuration key from ", conffile) ;
+  if (u) tain_from_millisecs(&g->qtto, u) ;
   g->dumpfile = conf_get_string("G:cachefile") ;
   if (!g->dumpfile && errno != ENOENT)
     strerr_diefu4sys(102, "read ", "G:cachefile", " configuration key from ", conffile) ;
@@ -122,7 +125,7 @@ int main (int argc, char const *const *argv)
 {
   global globals = GLOBAL_ZERO ;
   char const *conffile = SHIBARI_SYSCONFPREFIX "/shibari-cache.conf.cdb" ;
-  uint16_t n4 = 0, n6 = 0, maxtcp, maxqueries ;
+  uint16_t n4 = 0, n6 = 0, maxtcp, maxtasks ;
   char const *ip4 = 0, *ip6 = 0 ;
   unsigned int cont = 2 ;
   int spfd = -1 ;
@@ -168,7 +171,7 @@ int main (int argc, char const *const *argv)
   close(1) ;
 
   if (!cdb_init(&g->confdb, conffile)) strerr_diefu2sys(111, "open ", conffile) ;
-  conf_init(conffile, &n4, &n6, &ip4, &ip6, &maxtcp, &maxqueries) ;
+  conf_init(conffile, &n4, &n6, &ip4, &ip6, &maxtcp, &maxtasks) ;
 
   spfd = selfpipe_init() ;
   if (spfd == -1) strerr_diefu1sys(111, "create selfpipe") ;
@@ -192,19 +195,18 @@ int main (int argc, char const *const *argv)
     uint16_t tcp6xindex[n4 ? n4 : 1] ;
     tcpconnection tcpconnection_storage[maxtcp + 1] ;
     uint32_t tcpconnection_freelist[maxtcp + 1] ;
-    query query_storage[maxqueries + 1] ;
-    uint32_t query_freelist[maxqueries + 1] ;
+    dnstask dnstask_storage[maxtasks] ;
+    uint32_t dnstask_freelist[maxtasks] ;
 
     memset(udpq4, 0, n4 * sizeof(udpqueue)) ;
     memset(udpq6, 0, n6 * sizeof(udpqueue)) ;
     g->udpqueues[0] = udpq4 ;
     g->udpqueues[1] = udpq6 ;
     memset(tcpconnection_storage, 0, (maxtcp + 1) * sizeof(tcpconnection)) ;
-    memset(query_storage, 0, (maxqueries + 1) * sizeof(query)) ;
+    memset(dnstasks_storage, 0, maxtasks * sizeof(dnstask)) ;
     GENSET_init(&g->tcpconnections, tcpconnection, tcpconnection_storage, tcpconnection_freelist, maxtcp + 1) ;
     g->tcpsentinel = genset_new(&g->tcpconnections) ;
-    GENSET_init(&g->queries, query, query_storage, query_freelist, maxqueries + 1) ;
-    g->qsentinel = genset_new(&g->queries) ;
+    GENSET_init(&g->dnstasks, dnstask, dnstask_storage, dnstask_freelist, maxtasks) ;
     {
       tcpconnection *p = TCPCONNECTION(g->tcpsentinel) ;
       query *q = QUERY(g->qsentinel) ;
@@ -285,7 +287,7 @@ int main (int argc, char const *const *argv)
       for (uint16_t i = 0 ; i < n4 ; i++)
       {
         x[j].fd = udpq4[i].fd ;
-        x[j].events = nq < maxqueries && cont >= 2 ? IOPAUSE_READ : 0 ;
+        x[j].events = ntasks < maxtasks && cont >= 2 ? IOPAUSE_READ : 0 ;
         if (genalloc_len(udp4msg, &udpq4[i].messages))
         {
           x[j].events |= IOPAUSE_WRITE ;
@@ -307,7 +309,7 @@ int main (int argc, char const *const *argv)
       for (uint16_t i = 0 ; i < n6 ; i++)
       {
         x[j].fd = udpq6[i].fd ;
-        x[j].events = nq < maxqueries && cont >= 2 ? IOPAUSE_READ : 0 ;
+        x[j].events = ntasks < maxtasks && cont >= 2 ? IOPAUSE_READ : 0 ;
         if (genalloc_len(udp6msg, &udpq6[i].messages))
         {
           x[j].events |= IOPAUSE_WRITE ;
@@ -330,7 +332,7 @@ int main (int argc, char const *const *argv)
       {
         tcpconnection *p = TCPCONNECTION(i) ;
         x[j].fd = bufalloc_fd(&p->out) ;
-        if (nq < maxqueries && cont >= 2)
+        if (ntasks < maxtasks && cont >= 2)
         {
           x[j].events = IOPAUSE_READ ;
           if (tain_less(&p->rdeadline, &deadline)) deadline = p->rdeadline ;
@@ -354,10 +356,7 @@ int main (int argc, char const *const *argv)
         if (x[j].events) p->xindex = j++ ; else p->xindex = UINT16_MAX ;
       }
 
-
-     /* normal exit condition */
-
-      if (cont < 2 && !r && !nq) break ;
+      if (cont < 2 && !r && !ntasks) break ;  /* normal exit */
 
 
      /* poll() */
@@ -370,9 +369,9 @@ int main (int argc, char const *const *argv)
 
       if (!r)
       {
-        if (cont == 1 && !tain_future(&lameduckt)) break ;  /* too lame */
+        if (cont == 1 && !tain_future(&lameduckt)) break ;  /* lameduck exit */
         for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
-          if (s6dns_engine_timeout_g(&QUERY(i)->dt)) i = query_fail(i) ;
+          if (s6dns_engine_timeout_g(&QUERY(i)->dt)) i = query_event(i) ;
         for (uint16_t i = tcpstart ; i != g->tcpsentinel ; i = TCPCONNECTION(i)->next)
         {
           tcpconnection *p = TCPCONNECTION(i) ;
@@ -440,12 +439,8 @@ int main (int argc, char const *const *argv)
        /* process in-flight queries */
 
         for (uint16_t i = qstart ; i != g->qsentinel ; i = QUERY(i)->next)
-        {
-          if (QUERY(i)->xindex == UINT16_MAX) continue ;
-          r = s6dns_engine_event_g(&QUERY(i)->dt) ;
-          if (r < 0) i = query_fail(i) ;
-          else if (r > 0) i = query_succeed(i) ;
-        }
+          if (QUERY(i)->xindex < UINT16_MAX && s6dns_engine_event_g(&QUERY(i)->dt))
+            i = query_event(i) ;
 
 
        /* read udp */
@@ -454,11 +449,11 @@ int main (int argc, char const *const *argv)
         {
           if (udpq4[i].xindex < UINT16_MAX && x[udpq4[i].xindex].revents & IOPAUSE_READ)
           {
-            uint16_t n = MAXSAME ;
-            char buf[513] ;
-            char ip[4] ;
             uint16_t port ;
-            while (n-- && nq < maxqueries)
+            uint16_t n = MAXSAME ;
+            char ip[4] ;
+            char buf[513] ;
+            while (n-- && ntasks < maxtasks)
             {
               ssize_t len = sanitize_read(socket_recv4(udpq4[i].fd, buf, 512, ip, &port)) ;
               if (len == -1)
@@ -470,10 +465,7 @@ int main (int argc, char const *const *argv)
               if (!len) break ;
               if (len < 12 || len > 512
                || !clientaccess_ip4(ip)
-               || !query_start(0, i, ip, port, buf, len))
-              {
-                if (g->verbosity >= 3) log_udpbad(ip, port) ;
-              }
+               || !dns_start(0, i, ip, port, buf, len)) log_udpbad(ip, port) ;
             }
           }
         }
@@ -483,11 +475,11 @@ int main (int argc, char const *const *argv)
         {
           if (udpq6[i].xindex < UINT16_MAX && x[udpq6[i].xindex].revents & IOPAUSE_READ)
           {
-            uint16_t n = MAXSAME ;
-            char buf[513] ;
-            char ip[16] ;
             uint16_t port ;
-            while (n-- && nq < maxqueries)
+            uint16_t n = MAXSAME ;
+            char ip[16] ;
+            char buf[513] ;
+            while (n-- && ntasks < maxtasks)
             {
               ssize_t len = sanitize_read(socket_recv6(udpq6[i].fd, buf, 512, ip, &port)) ;
               if (len == -1)
@@ -499,10 +491,7 @@ int main (int argc, char const *const *argv)
               if (!len) break ;
               if (len < 12 || len > 512
                || !clientaccess_ip6(ip)
-               || !query_start(1, i, ip, port, buf, len))
-              {
-                if (g->verbosity >= 3) log_udpbad(ip, port) ;
-              }
+               || !dns_start(1, i, ip, port, buf, len)) log_udpbad(ip, port) ;
             }
           }
         }
@@ -523,9 +512,9 @@ int main (int argc, char const *const *argv)
               if (l == -1) { i = tcpconnection_delete(p) ; break ; }
               if (!l) break ;
               if (p->in.len < 12 || p->in.len > 65536
-               || !query_start(2, i, 0, 0, p->in.s, p->in.len))
+               || !dns_start(2, i, 0, 0, p->in.s, p->in.len))
               {
-                if (g->verbosity >= 3) log_tcpbad(i) ;
+                log_tcpbad(i) ;
                 i = tcpconnection_delete(p) ;
                 break ;
               }

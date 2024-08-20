@@ -19,20 +19,20 @@
 
 static int write_node_iter (void *data, void *aux)
 {
-  dcache_node_t *y = data ;
+  dcache_node *y = data ;
   buffer *b = aux ;
   char pack[TAI_PACK * 2 + 4] ;
-  tai_pack(pack, tain_secp(&y->entry)) ;
-  tai_pack(pack + TAI_PACK, tain_secp(&y->expire)) ;
-  uint16_pack(pack + TAI_PACK * 2, y->key.len) ;
-  uint16_pack(pack + TAI_PACK * 2 + 2, y->datalen) ;
+  tai_pack(pack, &y->entry) ;
+  tai_pack(pack + TAI_PACK, &y->expire) ;
+//  uint16_pack(pack + TAI_PACK * 2, y->key.len) ;
+//  uint16_pack(pack + TAI_PACK * 2 + 2, y->datalen) ;
   if (buffer_put(b, pack, TAI_PACK * 2 + 4) == -1) return 0 ;
-  if (buffer_put(b, y->key.s, y->key.len + y->datalen) == -1) return 0 ;
+//  if (buffer_put(b, y->key.s, y->key.len + y->datalen) == -1) return 0 ;
   if (buffer_put(b, "", 1) == -1) return 0 ;
   return 1 ;
 }
 
-static inline int dcache_save_to_buffer (dcache_t const *z, buffer *b)
+static inline int dcache_save_to_buffer (dcache const *z, buffer *b)
 {
   char pack[16] ;
   if (buffer_puts(b, DCACHE_MAGIC) == -1) return 0 ;
@@ -48,7 +48,7 @@ static inline int dcache_save_to_buffer (dcache_t const *z, buffer *b)
 
 #define N 8192
 
-int dcache_save (dcache_t const *z, char const *file)
+int dcache_save (dcache const *z, char const *file)
 {
   size_t len = strlen(file) ;
   int fd ;
@@ -60,7 +60,7 @@ int dcache_save (dcache_t const *z, char const *file)
   fd = mkstemp(tmp) ;
   if (fd == -1) return 0 ;
   buffer_init(&b, &buffer_write, fd, buf, N) ;
-  if (!dcache_save_to_buffer(z, &b) || fsync(fd) < 0) goto err2 ;
+  if (!dcache_save_to_buffer(z, &b) || fsync(fd) == -1) goto err2 ;
   fd_close(fd) ;
   if (rename(tmp, file) == -1) goto err1 ;
   return 1 ;

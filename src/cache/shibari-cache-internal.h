@@ -22,6 +22,7 @@
 #include <shibari/dcache.h>
 
 #define dienomem() strerr_diefu1sys(111, "concatenate data") ;
+#define dienewquery() strerr_diefu1sys(111, "prepare new query") ;
 
 
  /* cache */
@@ -50,6 +51,29 @@ extern int conf_get_uint64 (char const *, uint64_t *) ;
 extern char const *conf_get_string (char const *) ;
 
 
+ /* dns */
+
+typedef struct dnstask_s dnstask, *dnstask_ref ;
+struct dnstask_s
+{
+  stralloc sa ;
+  char ip[SKALIBS_IP_SIZE] ;
+  uint16_t qtype ;
+  uint16_t prefixlen ;
+  uint16_t state : 13 ;
+  uint16_t spin : 1 ;
+  uint16_t source : 2 ;
+  uint16_t sid ;
+  uint16 query[2] ;
+} ;
+#define DNSTASK_ZERO { .sa = STRALLOC_ZERO, .ip = { 0 }, .qtype = 0, .prefixlen = 0, .state = 0, .spin = 0, .source = 0, .sid = 0, query = { 0, 0 } }
+#define ntasks genset_n(&g->tasks)
+#define DNSTASK(i) genset_p(dnstask, &g->dnstasks, (i))
+
+extern void dnstask_wakeup (uint16_t, uint16_t, uint32_t) ;
+extern int dns_start (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
+
+
  /* log */
 
 extern void log_udp4bad (char const *, uint16_t) ;
@@ -68,27 +92,26 @@ typedef struct query_s query, *query_ref ;
 struct query_s
 {
   s6dns_engine_t dt ;
-  stralloc qname ;
   uint16_t prev ;
   uint16_t next ;
   uint16_t xindex ;
-  uint16_t i ;
-  uint16_t port ;
-  uint16_t qtype ;
-  uint8_t source ;
-  char ip[SKALIBS_IP_SIZE] ;
 } ;
-#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .qname = STRALLOC_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX, .i = 0, .port = 0, qtype = 0, name = 0, .source = 0, .ip = { 0 } }
-#define nq (genset_n(&g->queries) - 1)
-#define QUERY(i) genset_p(query, &g->queries, (i))
+#define QUERY_ZERO { .dt = S6DNS_ENGINE_ZERO, .prev = 0, .next = 0, .xindex = UINT16_MAX }
+#define nq (gensetdyn_n(&g->queries) - 1)
+#define QUERY(i) GENSETDYN_P(query, &g->queries, (i))
 #define qstart (QUERY(g->qsentinel)->next)
 
 extern uint16_t query_abort (uint16_t) ;
-extern uint16_t query_fail (uint16_t) ;
-extern uint16_t query_succeed (uint16_t) ;
+extern uint16_t query_event (uint16_t) ;
 
-extern int query_start (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
+extern int query_start (uint16_t, char const *, uint16_t, uint16_t, char const *, uint16_t, char const *, uint16_t, uint32_t) ;
 extern int query_end (uint8_t, uint16_t, char const *, uint16_t, char const *, uint16_t) ;
+
+
+ /* dns */
+
+extern void dns_start (query *) ;
+
 
  /* tcpconnection */
 
@@ -100,7 +123,7 @@ struct tcpconnection_s
   uint32_t instate ;
   tain rdeadline ;
   tain wdeadline ;
-  genalloc queries ;  /* uint16_t */
+  genalloc tasks ;  /* uint16_t */
   uint16_t prev ;
   uint16_t next ;
   uint16_t xindex ;
@@ -150,26 +173,30 @@ struct global_s
 {
   cdb confdb ;
   char const *dumpfile ;
-  uint16_t verbosity ;
   tain rtto ;
   tain wtto ;
+  tain qtto ;
   udpqueue *udpqueues[2] ;
-  genset tcpconnections ;  /* tcpconnection */
-  genset queries ;  /* query */
+  genset tcpconnections ;
+  genset dnstasks ;
+  gensetdyn queries ;
   uint16_t tcpsentinel ;
   uint16_t qsentinel ;
+  uint16_t verbosity ;
 } ;
 #define GLOBAL_ZERO { \
   .confdb = CDB_ZERO, \
   .dumpfile = 0, \
-  .verbosity = 1, \
   .rtto = TAIN_INFINITE, \
   .wtto = TAIN_INFINITE, \
+  .qtto = TAIN_INFINITE, \
   .udpqueues = { 0, 0 }, \
   .tcpconnections = GENSET_ZERO, \
-  .queries = GENSET_ZERO, \
+  .dnstasks = GENSET_ZERO, \
+  .queries = GENSETDYN_INIT(query, 3, 3, 8), \
   .tcpsentinel = 0, \
   .qsentinel = 0, \
+  .verbosity = 1, \
 }
 
 extern global *g ;

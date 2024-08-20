@@ -1,11 +1,12 @@
-/* ISC license. */
+/*  ISC license. */
+
+#include <stdint.h>
 
 #include <skalibs/fmtscan.h>
 #include <skalibs/strerr.h>
 #include <skalibs/ip46.h>
 
 #include "shibari-cache-internal.h"
-
 
 
 void log_udp4bad (char const *ip, uint16_t port)
@@ -53,3 +54,11 @@ void log_newtcp6 (char const *ip, uint16_t port)
 }
 
 #endif
+
+void log_warn_unexpected_answer(char const *q, uint16_t qlen, uint16_t qtype, int present)
+{
+  if (g->verbosity)
+  {
+  }
+}
+

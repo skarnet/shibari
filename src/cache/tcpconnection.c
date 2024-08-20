@@ -13,15 +13,15 @@
 
 #include "shibari-cache-internal.h"
 
-void tcpconnection_removequery (tcpconnection *p, uint16_t id)
+void tcpconnection_removetask (tcpconnection *p, uint16_t id)
 {
-  uint16_t *tab = genalloc_s(uint16_t, &p->queries) ;
-  uint16_t n = genalloc_len(uint16_t, &p->queries) ;
+  uint16_t *tab = genalloc_s(uint16_t, &p->tasks) ;
+  uint16_t n = genalloc_len(uint16_t, &p->tasks) ;
   uint16_t i = 0 ;
   for (; i < n ; i++) if (id == tab[i]) break ;
   if (i >= n) return ;
   tab[i] = tab[--n] ;
-  genalloc_setlen(uint16_t, &p->queries, n) ;
+  genalloc_setlen(uint16_t, &p->tasks, n) ;
 }
 
 uint16_t tcpconnection_delete (tcpconnection *p)
@@ -31,9 +31,9 @@ uint16_t tcpconnection_delete (tcpconnection *p)
   p->in.len = 0 ;
   p->instate = 0 ;
   fd_close(p->out.fd) ;
-  for (uint16_t i = 0 ; i < genalloc_len(uint16_t, &p->queries) ; i++)
-    query_abort(genalloc_s(uint16_t, &p->queries)[i]) ;
-  genalloc_setlen(uint16_t, &p->queries, 0) ;
+  for (uint16_t i = 0 ; i < genalloc_len(uint16_t, &p->tasks) ; i++)
+    dnstask_abort(genalloc_s(uint16_t, &p->tasks)[i]) ;
+  genalloc_setlen(uint16_t, &p->tasks, 0) ;
   TCPCONNECTION(newi)->next = p->next ;
   TCPCONNECTION(p->next)->prev = p->prev ;
   p->xindex = UINT16_MAX ;

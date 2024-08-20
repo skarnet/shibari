@@ -1,6 +1,7 @@
 cache.o
 clientaccess.o
 conf.o
+dns.o
 log.o
 query.o
 tcpconnection.o

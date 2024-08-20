@@ -1,6 +1,6 @@
 /* ISC license. */
 
-#include <skalibs/alloc.h>
+#include <skalibs/stralloc.h>
 #include <skalibs/gensetdyn.h>
 #include <skalibs/avltree.h>
 
@@ -8,12 +8,13 @@
 
 static void dcache_node_free (void *p)
 {
-  alloc_free(((dcache_node_t *)p)->key.s) ;
+  dcache_node *node = p ;
+  stralloc_free(&node->sa) ;
 }
 
-void dcache_free (dcache_t *z)
+void dcache_free (dcache *z)
 {
-  static dcache_t const dcache_zero = DCACHE_ZERO ;
+  static dcache const dcache_zero = DCACHE_ZERO ;
   avltree_free(&z->by_expire) ;
   avltree_free(&z->by_entry) ;
   avltree_free(&z->by_key) ;
