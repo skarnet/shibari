@@ -9,32 +9,47 @@
 #include <skalibs/buffer.h>
 #include <skalibs/tai.h>
 #include <skalibs/djbunix.h>
+#include <skalibs/avltree.h>
 
 #include <shibari/dcache.h>
+#include "dcache-internal.h"
 
 #include <skalibs/posixishard.h>
+
+static inline int dcache_adjust_node (dcache *z, uint32_t i, char const *data, uint16_t datalen, tai const *entry, tai const *expire)
+{
+ /* can't happen. Complete if it ever can. */
+  return (errno = EDOM, 0) ;
+}
+
+static inline int dcache_add_keydata (dcache *z, char const *q, uint16_t qlen, uint16_t qtype, char const *data, uint16_t datalen, tai const *entry, tai const *expire)
+{
+  uint32_t i ;
+  if (dcache_search_g(z, &i, q, qlen, qtype)) return dcache_adjust_node(z, i, data, datalen, entry, expire) ;
+  return dcache_add(z, q, qlen, qtype, data, datalen, entry, expire) ;
+}
 
 static inline int dcache_load_node (dcache *z, buffer *b)
 {
   tai entry, expire ;
-  uint16_t keylen ;
-  uint16_t datalen ;
-  char pack[TAI_PACK * 2 + 4] ;
-  ssize_t r = buffer_get(b, pack, TAI_PACK * 2 + 4) ;
+  uint16_t qtype, qlen, datalen ;
+  char pack[TAI_PACK * 2 + 6] ;
+  ssize_t r = buffer_get(b, pack, TAI_PACK * 2 + 6) ;
   if (!r) return 0 ;
-  if (r < TAI_PACK * 2 + 4) return -1 ;
+  if (r < TAI_PACK * 2 + 6) return -1 ;
   tai_unpack(pack, &entry) ;
   tai_unpack(pack + TAI_PACK, &expire) ;
-  uint16_unpack_big(pack + TAI_PACK * 2, &keylen) ;
-  uint16_unpack_big(pack + TAI_PACK * 2 + 2, &datalen) ;
+  uint16_unpack_big(pack + TAI_PACK * 2, &datalen) ;
+  uint16_unpack_big(pack + TAI_PACK * 2 + 2, &qtype) ;
+  uint16_unpack_big(pack + TAI_PACK * 2 + 4, &qlen) ;
   {
-    uint32_t len = (uint32_t)keylen + (uint32_t)datalen ;
-    char blob[len+1] ;  /* 128 kB max, it's ok */ 
-    r = buffer_get(b, blob, len+1) ;
+    uint32_t len = qlen + datalen ;
+    char blob[len+1] ;  /* 128 kB max */
+    r = buffer_get(b, blob, len + 1) ;
     if (!r) return (errno = EPIPE, -1) ;
-    if (r < len) return -1 ;
+    if (r <= len) return -1 ;
     if (blob[len]) return (errno = EPROTO, -1) ;
-//    if (!dcache_add(z, blob, keylen, blob + keylen, datalen, &expire, &entry)) return -1 ;
+    if (!dcache_add_keydata(z, blob, qlen, qtype, blob + qlen, datalen, &entry, &expire)) return -1 ;
   }
   return 1 ;
 }

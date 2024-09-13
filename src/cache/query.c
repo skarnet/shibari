@@ -47,12 +47,12 @@ uint16_t query_event (uint16_t qid)
     default : rcode = 2 ; break ;
   }
   s6dns_engine_query(&q->dt, &question.s, &question.len, &qtype) ;
-  r = dcache_searchnode_g(&g->dcache, &nodeid, question.s, question.len, qtype) ;
+  r = dcache_search_g(&g->dcache, &nodeid, question.s, question.len, qtype) ;
   switch (r)
   {
     case -1 :
       log_warn_unexpected_answer(question.s, question.len, qtype, 0) ;
-      if (!rcode) dcache_add_new_answer(&g->dcache, question.s, question.len, qtype, s6dns_engine_packet(&q->dt), s6dns_engine_packetlen(&q->dt)) ;
+      if (!rcode) dcache_add_g(&g->dcache, question.s, question.len, qtype, s6dns_engine_packet(&q->dt), s6dns_engine_packetlen(&q->dt), &expire) ;
       break ;
     case 1 :
       log_warn_unexpected_answer(question.s, question.len, qtype, 1) ;

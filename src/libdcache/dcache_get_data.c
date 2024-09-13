@@ -5,6 +5,7 @@
 #include <skalibs/uint16.h>
 
 #include <shibari/dcache.h>
+#include "dcache-internal.h"
 
 void dcache_get_data (dcache *z, uint32_t nid, dcache_string *data)
 {

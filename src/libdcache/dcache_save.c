@@ -12,7 +12,6 @@
 #include <skalibs/buffer.h>
 #include <skalibs/tai.h>
 #include <skalibs/djbunix.h>
-#include <skalibs/skamisc.h>
 #include <skalibs/gensetdyn.h>
 
 #include <shibari/dcache.h>
@@ -21,13 +20,18 @@ static int write_node_iter (void *data, void *aux)
 {
   dcache_node *y = data ;
   buffer *b = aux ;
-  char pack[TAI_PACK * 2 + 4] ;
+  char pack[TAI_PACK] ;
+  uint16_t len ;
+  if (y->sa.a != y->sa.len) return 1 ;
   tai_pack(pack, &y->entry) ;
+  if (buffer_put(b, pack, TAI_PACK) == -1) return 0 ;
   tai_pack(pack + TAI_PACK, &y->expire) ;
-//  uint16_pack(pack + TAI_PACK * 2, y->key.len) ;
-//  uint16_pack(pack + TAI_PACK * 2 + 2, y->datalen) ;
-  if (buffer_put(b, pack, TAI_PACK * 2 + 4) == -1) return 0 ;
-//  if (buffer_put(b, y->key.s, y->key.len + y->datalen) == -1) return 0 ;
+  if (buffer_put(b, pack, TAI_PACK) == -1) return 0 ;
+  uint16_unpack_big(y->sa.s + 2, &len) ;
+  len = y->sa.len - len ;
+  uint16_pack_big(pack, len) ;
+  if (buffer_put(b, pack, 2) == -1) return 0 ;
+  if (buffer_put(b, y->sa.s, y->sa.len) == -1) return 0 ;
   if (buffer_put(b, "", 1) == -1) return 0 ;
   return 1 ;
 }

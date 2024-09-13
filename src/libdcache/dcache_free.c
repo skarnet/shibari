@@ -1,15 +1,15 @@
 /* ISC license. */
 
-#include <skalibs/stralloc.h>
 #include <skalibs/gensetdyn.h>
 #include <skalibs/avltree.h>
 
 #include <shibari/dcache.h>
+#include "dcache-internal.h"
 
-static void dcache_node_free (void *p)
+static void dnode_free (void *p)
 {
   dcache_node *node = p ;
-  stralloc_free(&node->sa) ;
+  dcache_node_free(node) ;
 }
 
 void dcache_free (dcache *z)
@@ -18,6 +18,6 @@ void dcache_free (dcache *z)
   avltree_free(&z->by_expire) ;
   avltree_free(&z->by_entry) ;
   avltree_free(&z->by_key) ;
-  gensetdyn_deepfree(&z->storage, &dcache_node_free) ;
+  gensetdyn_deepfree(&z->storage, &dnode_free) ;
   *z = dcache_zero ;
 }

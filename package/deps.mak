@@ -35,13 +35,14 @@ src/config/util.o src/config/util.lo: src/config/util.c src/config/shibari-cache
 src/libdcache/dcache_add_data.o src/libdcache/dcache_add_data.lo: src/libdcache/dcache_add_data.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
 src/libdcache/dcache_clean_expired.o src/libdcache/dcache_clean_expired.lo: src/libdcache/dcache_clean_expired.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
 src/libdcache/dcache_delete.o src/libdcache/dcache_delete.lo: src/libdcache/dcache_delete.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
-src/libdcache/dcache_free.o src/libdcache/dcache_free.lo: src/libdcache/dcache_free.c src/include/shibari/dcache.h
-src/libdcache/dcache_get_data.o src/libdcache/dcache_get_data.lo: src/libdcache/dcache_get_data.c src/include/shibari/dcache.h
+src/libdcache/dcache_free.o src/libdcache/dcache_free.lo: src/libdcache/dcache_free.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
+src/libdcache/dcache_get_data.o src/libdcache/dcache_get_data.lo: src/libdcache/dcache_get_data.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
 src/libdcache/dcache_init.o src/libdcache/dcache_init.lo: src/libdcache/dcache_init.c src/include/shibari/dcache.h
-src/libdcache/dcache_load.o src/libdcache/dcache_load.lo: src/libdcache/dcache_load.c src/include/shibari/dcache.h
+src/libdcache/dcache_load.o src/libdcache/dcache_load.lo: src/libdcache/dcache_load.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
+src/libdcache/dcache_node_add.o src/libdcache/dcache_node_add.lo: src/libdcache/dcache_node_add.c src/libdcache/dcache-internal.h
 src/libdcache/dcache_node_new.o src/libdcache/dcache_node_new.lo: src/libdcache/dcache_node_new.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
 src/libdcache/dcache_save.o src/libdcache/dcache_save.lo: src/libdcache/dcache_save.c src/include/shibari/dcache.h
-src/libdcache/dcache_searchnode.o src/libdcache/dcache_searchnode.lo: src/libdcache/dcache_searchnode.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
+src/libdcache/dcache_search.o src/libdcache/dcache_search.lo: src/libdcache/dcache_search.c src/libdcache/dcache-internal.h src/include/shibari/dcache.h
 src/server/shibari-server-tcp.o src/server/shibari-server-tcp.lo: src/server/shibari-server-tcp.c src/include/shibari/common.h src/include/shibari/server.h
 src/server/shibari-server-udp.o src/server/shibari-server-udp.lo: src/server/shibari-server-udp.c src/include/shibari/common.h src/include/shibari/server.h
 src/server/shibari_packet_add_glue.o src/server/shibari_packet_add_glue.lo: src/server/shibari_packet_add_glue.c src/include/shibari/constants.h src/include/shibari/packet.h src/include/shibari/tdb.h src/include/shibari/util.h
@@ -69,12 +70,12 @@ libshibari-common.so.xyzzy: src/common/shibari_log_answer.lo src/common/shibari_
 shibari-cache-config: EXTRA_LIBS := -ls6dns -lskarnet
 shibari-cache-config: src/config/shibari-cache-config.o src/config/repo.o src/config/defaults.o src/config/lexparse.o src/config/util.o
 ifeq ($(strip $(STATIC_LIBS_ARE_PIC)),)
-libdcache.a.xyzzy: src/libdcache/dcache_add_data.o src/libdcache/dcache_clean_expired.o src/libdcache/dcache_delete.o src/libdcache/dcache_free.o src/libdcache/dcache_init.o src/libdcache/dcache_load.o src/libdcache/dcache_save.o
+libdcache.a.xyzzy: src/libdcache/dcache_add_data.o src/libdcache/dcache_clean_expired.o src/libdcache/dcache_delete.o src/libdcache/dcache_free.o src/libdcache/dcache_get_data.o src/libdcache/dcache_init.o src/libdcache/dcache_load.o src/libdcache/dcache_node_add.o src/libdcache/dcache_node_new.o src/libdcache/dcache_save.o src/libdcache/dcache_search.o
 else
-libdcache.a.xyzzy: src/libdcache/dcache_add_data.lo src/libdcache/dcache_clean_expired.lo src/libdcache/dcache_delete.lo src/libdcache/dcache_free.lo src/libdcache/dcache_init.lo src/libdcache/dcache_load.lo src/libdcache/dcache_save.lo
+libdcache.a.xyzzy: src/libdcache/dcache_add_data.lo src/libdcache/dcache_clean_expired.lo src/libdcache/dcache_delete.lo src/libdcache/dcache_free.lo src/libdcache/dcache_get_data.lo src/libdcache/dcache_init.lo src/libdcache/dcache_load.lo src/libdcache/dcache_node_add.lo src/libdcache/dcache_node_new.lo src/libdcache/dcache_save.lo src/libdcache/dcache_search.lo
 endif
 libdcache.so.xyzzy: EXTRA_LIBS :=
-libdcache.so.xyzzy: src/libdcache/dcache_add_data.lo src/libdcache/dcache_clean_expired.lo src/libdcache/dcache_delete.lo src/libdcache/dcache_free.lo src/libdcache/dcache_init.lo src/libdcache/dcache_load.lo src/libdcache/dcache_save.lo
+libdcache.so.xyzzy: src/libdcache/dcache_add_data.lo src/libdcache/dcache_clean_expired.lo src/libdcache/dcache_delete.lo src/libdcache/dcache_free.lo src/libdcache/dcache_get_data.lo src/libdcache/dcache_init.lo src/libdcache/dcache_load.lo src/libdcache/dcache_node_add.lo src/libdcache/dcache_node_new.lo src/libdcache/dcache_save.lo src/libdcache/dcache_search.lo
 ifeq ($(strip $(STATIC_LIBS_ARE_PIC)),)
 libshibari-server.a.xyzzy: src/server/shibari_packet_init.o src/server/shibari_packet_begin.o src/server/shibari_packet_end.o src/server/shibari_packet_add_rr.o src/server/shibari_tdb_entry_parse.o src/server/shibari_tdb_extract_domain.o src/server/shibari_tdb_find_authority.o src/server/shibari_tdb_read_entry.o src/server/shibari_packet_add_glue.o src/server/shibari_packet_assert_authority.o src/server/shibari_packet_tdb_answer_query.o src/server/shibari_packet_tdb_axfr.o
 else

@@ -56,7 +56,7 @@ int dcache_add_data (dcache *z, char const *q, uint16_t qlen, uint16_t qtype, ch
   if (z->size > z->max - size) dcache_clean_expired(z, stamp) ;
   if (z->size > z->max - size) dcache_gc_by_entry(z, z->max - size) ;
   if (z->size > z->max - size) return (errno = ENOBUFS, 0) ;
-  if (!dcache_searchnode(z, &i, q, qlen, qtype, stamp)) return 0 ;
+  if (!dcache_search(z, &i, q, qlen, qtype, stamp)) return 0 ;
   if (!dcache_add_data_to_node(z, i, qlen, data, datalen, expire, stamp)) return 0 ;
   z->size += size ;
   z->motion += size ;

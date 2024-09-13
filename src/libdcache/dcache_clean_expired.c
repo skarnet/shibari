@@ -14,7 +14,7 @@ void dcache_clean_expired (dcache *z, tai const *stamp)
   {
     uint32_t i ;
     if (!avltree_min(&z->by_expire, &i)) break ;
-    if (tai_less(stamp, &DNODE(z, i)->expire)) break ;
+    if (!tai_less(&DNODE(z, i)->expire, stamp)) break ;
     dcache_delete(z, i) ;
   }
 }
