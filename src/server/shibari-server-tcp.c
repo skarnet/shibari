@@ -161,7 +161,7 @@ int main (int argc, char const *const *argv)
       pkt.hdr.rcode = rcode ;
       shibari_packet_end(&pkt) ;
     }
-    shibari_log_answer(verbosity, &pkt.hdr, pkt.pos) ;
+    if (rcode != 4 && rcode != 1) shibari_log_answer(verbosity, &pkt.hdr, pkt.pos) ;
     if (!buffer_timed_put_g(buffer_1, buf, pkt.pos + 2, &deadline)
      || !buffer_timed_flush_g(buffer_1, &deadline))
       strerr_diefu1sys(111, "write to stdout") ;

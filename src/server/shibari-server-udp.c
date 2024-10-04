@@ -237,7 +237,7 @@ int main (int argc, char const *const *argv)
       pkt.hdr.rcode = rcode ;
       shibari_packet_end(&pkt) ;
     }
-    shibari_log_answer(verbosity, &pkt.hdr, pkt.pos) ;
+    if (rcode != 1 && rcode != 4) shibari_log_answer(verbosity, &pkt.hdr, pkt.pos) ;
     tain_add_g(&wstamp, &wtto) ;
     if (socket_sendnb46_g(x[1].fd, buf, pkt.pos, &remoteip, remoteport, &wstamp) < pkt.pos && verbosity)
       strerr_warnwu1sys("send answer") ;
