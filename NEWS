@@ -1,6 +1,6 @@
 Changelog for shibari.
 
-In 0.0.2.0
+In 0.0.1.2
 ----------
 
  - Install static libraries in /usr/lib by default.
