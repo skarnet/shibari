@@ -9,3 +9,4 @@ dcache_node_add.o
 dcache_node_new.o
 dcache_save.o
 dcache_search.o
+-lskarnet
