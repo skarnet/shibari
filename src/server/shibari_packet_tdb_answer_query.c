@@ -62,7 +62,7 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
       int r = shibari_tdb_read_entry(tdb, &state, &entry, ql.s + wildpos, ql.len - wildpos, qtype, !!wildpos, loc, stamp, &flagyxdomain) ;
       if (r == -1) return 2 ;
       if (!r) break ;
-      if (!shibari_packet_add_rr(pkt, &entry, 0, wildpos, 2))
+      if (!shibari_packet_add_rr(pkt, &entry, 0, 0, 2))
       {
         pkt->hdr.tc = 1 ;
         return 0 ;
@@ -77,8 +77,8 @@ unsigned int shibari_packet_tdb_answer_query (shibari_packet *pkt, cdb const *td
         default : break ;
       }
     }
-    if (pkt->hdr.counts.an || flagyxdomain) break ;
-    wildpos += 1 + q->s[wildpos] ;
+    if (pkt->hdr.counts.an || flagyxdomain || (ql.s[wildpos] == 1 && ql.s[wildpos+1] == '*')) break ;
+    wildpos += 1 + ql.s[wildpos] ;
   }
 
  got:

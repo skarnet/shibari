@@ -12,11 +12,12 @@ int shibari_tdb_read_entry (cdb const *tdb, cdb_find_state *state, shibari_tdb_e
   {
     r = cdb_findnext(tdb, &data, s, len, state) ;
     if (r <= 0) return r ;
-    if (flags && !!wild) *flags |= 1 ;
+    if (flags && !wild) *flags |= 1 ;
     r = shibari_tdb_entry_parse(out, data.s, data.len, qtype, wild, loc, stamp) ;
     if (r == -1) return -1 ;
   }
   out->key.s = s ;
   out->key.len = len ;
+  if (flags) *flags |= 1 ;
   return 1 ;
 }

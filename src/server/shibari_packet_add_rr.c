@@ -12,13 +12,8 @@
 int shibari_packet_add_rr (shibari_packet *p, shibari_tdb_entry const *entry, int prefixlen, uint16_t offset, unsigned int section)
 {
   uint16_t *count[4] = { &p->hdr.counts.qd, &p->hdr.counts.an, &p->hdr.counts.ns, &p->hdr.counts.nr } ;
-  uint16_t rrlen = 10 + entry->data.len + (entry->flags & 1 ? 2 : 0) + (prefixlen >= 0 ? prefixlen + 2 : entry->key.len) ;
+  uint16_t rrlen = 10 + entry->data.len + (prefixlen >= 0 ? prefixlen + 2 : entry->key.len) ;
   if (p->max - p->pos < rrlen) return 0 ;
-  if (entry->flags & 1)
-  {
-    p->buf[p->pos++] = 1 ;
-    p->buf[p->pos++] = '*' ;
-  }
   if (prefixlen >= 0)
   {
     memcpy(p->buf + p->pos, entry->key.s, prefixlen) ;
